@@ -84,6 +84,7 @@ required_tokens = (
     "Metodología para el Análisis de Capacidad Hídrica",
     "openCategoryInfo",
     "Conocer esta categoría hídrica",
+    "if (target) target.textContent = value",
 )
 for token in required_tokens:
     if token not in html:
