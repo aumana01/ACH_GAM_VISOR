@@ -1,0 +1,35 @@
+name: Validar ACH GAM VISOR
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Descargar repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Instalar dependencias
+        run: pip install -r requirements.txt
+
+      - name: Validar código Python
+        run: python -m compileall -q app.py scripts
+
+      - name: Validar datos públicos
+        run: python scripts/check_public_data.py
+
+      - name: Probar paquete cartográfico
+        run: python scripts/smoke_test_app.py
+
+      - name: Verificar importación de Streamlit
+        run: python -c "import streamlit, streamlit_autorefresh; print(streamlit.__version__)"

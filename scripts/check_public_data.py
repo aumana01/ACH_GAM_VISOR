@@ -18,6 +18,16 @@ SCHEMAS = {
     "municipalidades.geojson": {"operador", "sistema"},
     "esph.geojson": {"operador", "sistema"},
     "asadas.geojson": {"codigo", "operador"},
+    "cobertura-thiessen-asadas.geojson": {"codigo", "operador", "alcance", "metodo"},
+    "criterios-especiales.geojson": {
+        "codigo_sistema",
+        "nombre_sistema",
+        "codigo_abastecimiento",
+        "zona",
+        "zona_operativa",
+        "tipo",
+        "detalle",
+    },
     "onas.geojson": {"operador", "sistema"},
     "areas-protegidas.geojson": {"codigo", "nombre", "categoria"},
     "distritos.geojson": {"provincia", "canton", "distrito"},
@@ -138,10 +148,37 @@ required_map_tokens = (
     "captureMap",
     "startCoordinateMode",
     "startMeasurement",
+    "criteriaPopup",
+    "data.thiessen",
 )
 for token in required_map_tokens:
     if token not in map_source:
         FAILURES.append(f"map/app.js: falta la herramienta requerida: {token}")
+
+criteria_features = collections.get("criterios-especiales.geojson", {}).get(
+    "features", []
+)
+valid_criteria_types = {"Restricción", "Facilidad", "Criterio especial"}
+for feature in criteria_features:
+    condition_type = (feature.get("properties") or {}).get("tipo")
+    if condition_type not in valid_criteria_types:
+        FAILURES.append(
+            "criterios-especiales.geojson: tipo de condición pública inválido."
+        )
+
+thiessen_features = collections.get(
+    "cobertura-thiessen-asadas.geojson", {}
+).get("features", [])
+for feature in thiessen_features:
+    properties = feature.get("properties") or {}
+    if properties.get("alcance") != "Cobertura somera/estimada":
+        FAILURES.append(
+            "cobertura-thiessen-asadas.geojson: debe advertir su alcance estimado."
+        )
+    if properties.get("metodo") != "Polígono de Thiessen":
+        FAILURES.append(
+            "cobertura-thiessen-asadas.geojson: método público inválido."
+        )
 
 if FAILURES:
     print("\n".join(f"- {failure}" for failure in FAILURES), file=sys.stderr)
@@ -160,4 +197,3 @@ print(
         indent=2,
     )
 )
-

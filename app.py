@@ -23,6 +23,8 @@ DATA_FILES = {
     "municipal": "municipalidades.geojson",
     "esph": "esph.geojson",
     "asadas": "asadas.geojson",
+    "thiessen": "cobertura-thiessen-asadas.geojson",
+    "criteria": "criterios-especiales.geojson",
     "ona": "onas.geojson",
     "protected": "areas-protegidas.geojson",
     "districts": "distritos.geojson",
@@ -178,4 +180,3 @@ except (FileNotFoundError, json.JSONDecodeError, OSError) as error:
         "No fue posible cargar ACH GAM VISOR. "
         f"Revise los archivos públicos del proyecto: {error}"
     )
-

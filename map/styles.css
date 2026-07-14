@@ -406,6 +406,8 @@ button {
 .protected-swatch { color: #468d54; background: rgba(70, 141, 84, 0.15); }
 .district-swatch { color: #617386; background: transparent; border-style: dashed; }
 .asada-swatch { color: #028f9f; background: #e8fdff; border-radius: 50%; }
+.thiessen-swatch { color: #008b98; background: rgba(66, 196, 203, 0.16); border-style: dashed; }
+.criteria-swatch { color: #8d4b16; background: rgba(242, 162, 58, 0.15); border-style: dashed; }
 
 .legend-list {
   display: grid;
@@ -609,6 +611,73 @@ button {
 .status-pill.surplus {
   color: #11673b;
   background: #dff5e8;
+}
+
+.criteria-popup .popup-body {
+  gap: 0.65rem;
+}
+
+.criteria-list {
+  display: grid;
+  gap: 0.55rem;
+  max-height: 290px;
+  overflow-y: auto;
+  padding-right: 0.15rem;
+}
+
+.criteria-item {
+  padding: 0.58rem 0.62rem;
+  border: 1px solid #d7e0e7;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.criteria-item-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+
+.criteria-item-head strong {
+  color: var(--aya-blue);
+  font-size: 0.77rem;
+}
+
+.criteria-kind {
+  flex: 0 0 auto;
+  padding: 0.12rem 0.35rem;
+  border-radius: 999px;
+  font-size: 0.61rem;
+  font-weight: 800;
+}
+
+.criteria-kind.restriction { color: #8d321e; background: #ffe5dd; }
+.criteria-kind.facility { color: #11623b; background: #dff4e8; }
+.criteria-kind.special { color: #5d4c1d; background: #fff1c6; }
+
+.criteria-item dl {
+  display: grid;
+  gap: 0.2rem;
+  margin: 0.45rem 0 0;
+}
+
+.criteria-item dl div {
+  display: grid;
+  grid-template-columns: 88px minmax(0, 1fr);
+  gap: 0.45rem;
+}
+
+.criteria-item dt {
+  color: #6b7d8e;
+  font-size: 0.64rem;
+}
+
+.criteria-item dd {
+  margin: 0;
+  text-align: right;
+  font-size: 0.66rem;
+  font-weight: 700;
 }
 
 .coordinate-popup {

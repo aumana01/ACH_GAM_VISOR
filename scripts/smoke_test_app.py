@@ -66,6 +66,9 @@ required_tokens = (
     "ACH GAM VISOR",
     '"condicion":"Déficit"',
     '"condicion":"Superávit"',
+    '"alcance":"Cobertura somera/estimada"',
+    '"tipo":"Facilidad"',
+    '"tipo":"Restricción"',
 )
 for token in required_tokens:
     if token not in html:
@@ -89,4 +92,3 @@ print(
         "scrolling": rendered.get("scrolling"),
     }
 )
-

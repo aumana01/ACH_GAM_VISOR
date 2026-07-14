@@ -12,7 +12,9 @@ from pathlib import Path
 from typing import Any, Callable
 
 from openpyxl import load_workbook
-from shapely.geometry import mapping, shape
+from shapely import voronoi_polygons
+from shapely.geometry import MultiPoint, mapping, shape
+from shapely.ops import unary_union
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -26,6 +28,8 @@ FILES = {
     "municipal": "Acueductos_Municipales.json",
     "esph": "ESPH_AP.json",
     "asadas": "ASADAS.json",
+    "thiessen": "Cobertura_Thiessen_ASADAS_UTAPS.json",
+    "criteria": "Criterios Especiales CCH GAM.json",
     "ona": "Cobertura_ONAs_BD.json",
     "protected": "Áreas_Protegidas.json",
     "districts": "Distritos_GAM.json",
@@ -57,6 +61,17 @@ def finite_number(value: Any) -> float | None:
     except (TypeError, ValueError):
         return None
     return number
+
+
+def special_condition(value: Any) -> dict[str, str]:
+    raw = clean(value)
+    plain = normalized_text(raw)
+    article = re.search(r"articulo\s*(\d+)", plain, re.IGNORECASE)
+    if article:
+        return {"tipo": "Facilidad", "detalle": f"Artículo {article.group(1)}"}
+    if re.search(r"restric", plain, re.IGNORECASE):
+        return {"tipo": "Restricción", "detalle": "Restricción particular"}
+    return {"tipo": "Criterio especial", "detalle": raw or "No especificado"}
 
 
 def read_geojson(filename: str) -> dict[str, Any]:
@@ -280,11 +295,99 @@ districts = map_features(
     precision=5,
 )
 
+systems_by_code: dict[str, dict[str, Any]] = {}
+for feature in systems["features"]:
+    code = normalize_code(feature["properties"].get("codigo"))
+    if code and code not in systems_by_code:
+        systems_by_code[code] = feature
+
+criteria_features = []
+for source_feature in read_geojson(FILES["criteria"])["features"]:
+    source = source_feature.get("properties") or {}
+    system = systems_by_code.get(normalize_code(source.get("codigo_sis")))
+    if not system:
+        continue
+    condition = special_condition(source.get("cond_especial"))
+    criteria_features.append(
+        {
+            "type": "Feature",
+            "geometry": system["geometry"],
+            "properties": {
+                "codigo_sistema": system["properties"]["codigo"],
+                "nombre_sistema": system["properties"]["nombre"],
+                "codigo_abastecimiento": clean(source.get("codigo_aba")),
+                "zona": clean(source.get("zonas")),
+                "zona_operativa": clean(source.get("zona_opera")),
+                **condition,
+            },
+        }
+    )
+criteria = {"type": "FeatureCollection", "features": criteria_features}
+
+# La fuente Thiessen suministrada puede llegar sin geometría. Se valida su
+# presencia y se reconstruye una cobertura estimada a partir de los puntos
+# públicos de ASADAS, limitada a los distritos GAM.
+thiessen_source = read_geojson(FILES["thiessen"])
+if not thiessen_source["features"]:
+    raise ValueError(f"{FILES['thiessen']} no contiene entidades.")
+
+district_mask = unary_union(
+    shape(feature["geometry"]) for feature in districts["features"]
+).buffer(0)
+unique_points: dict[tuple[float, float], dict[str, Any]] = {}
+for feature in asadas["features"]:
+    point = shape(feature["geometry"])
+    if not district_mask.covers(point):
+        continue
+    key = (round(point.x, 7), round(point.y, 7))
+    record = unique_points.setdefault(
+        key,
+        {"point": point, "codigos": set(), "operadores": set()},
+    )
+    properties = feature.get("properties") or {}
+    if clean(properties.get("codigo")):
+        record["codigos"].add(clean(properties.get("codigo")))
+    if clean(properties.get("operador")):
+        record["operadores"].add(clean(properties.get("operador")))
+
+point_records = list(unique_points.values())
+cells = voronoi_polygons(
+    MultiPoint([record["point"] for record in point_records]),
+    extend_to=district_mask,
+    ordered=True,
+)
+thiessen_features = []
+for record, cell in zip(point_records, cells.geoms):
+    clipped = cell.intersection(district_mask).simplify(
+        0.00008, preserve_topology=True
+    )
+    if clipped.is_empty:
+        continue
+    geometry = mapping(clipped)
+    thiessen_features.append(
+        {
+            "type": "Feature",
+            "geometry": {
+                "type": geometry["type"],
+                "coordinates": round_coordinates(geometry["coordinates"], 6),
+            },
+            "properties": {
+                "codigo": " / ".join(sorted(record["codigos"])),
+                "operador": " / ".join(sorted(record["operadores"])) or "ASADA",
+                "alcance": "Cobertura somera/estimada",
+                "metodo": "Polígono de Thiessen",
+            },
+        }
+    )
+thiessen = {"type": "FeatureCollection", "features": thiessen_features}
+
 outputs = {
     "sistemas.geojson": systems,
     "municipalidades.geojson": municipal,
     "esph.geojson": esph,
     "asadas.geojson": asadas,
+    "cobertura-thiessen-asadas.geojson": thiessen,
+    "criterios-especiales.geojson": criteria,
     "onas.geojson": onas,
     "areas-protegidas.geojson": protected,
     "distritos.geojson": districts,
@@ -307,4 +410,3 @@ metadata = {
 }
 write_json("metadata.json", metadata)
 print(json.dumps(metadata, ensure_ascii=False, indent=2))
-

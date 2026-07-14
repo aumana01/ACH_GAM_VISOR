@@ -15,6 +15,8 @@
     municipal: "data/municipalidades.geojson",
     esph: "data/esph.geojson",
     asadas: "data/asadas.geojson",
+    thiessen: "data/cobertura-thiessen-asadas.geojson",
+    criteria: "data/criterios-especiales.geojson",
     ona: "data/onas.geojson",
     protected: "data/areas-protegidas.geojson",
     districts: "data/distritos.geojson",
@@ -63,7 +65,9 @@
 
   map.createPane("restrictions").style.zIndex = 320;
   map.createPane("reference").style.zIndex = 330;
+  map.createPane("estimatedCoverage").style.zIndex = 345;
   map.createPane("operators").style.zIndex = 360;
+  map.createPane("criteria").style.zIndex = 390;
   map.createPane("systems").style.zIndex = 430;
   map.createPane("operatorPoints").style.zIndex = 470;
   map.createPane("drawings").style.zIndex = 650;
@@ -235,6 +239,41 @@
     `;
   }
 
+  function criteriaPopup(properties, records) {
+    const types = [...new Set(records.map((item) => item.tipo).filter(Boolean))];
+    return `
+      <article class="popup-card criteria-popup">
+        <header class="popup-head">
+          <small>${escapeHtml(properties.codigo_sistema)}</small>
+          <strong>${escapeHtml(properties.nombre_sistema)}</strong>
+        </header>
+        <div class="popup-body">
+          <div class="popup-row">
+            <span>Condiciones registradas</span>
+            <span>${escapeHtml(types.join(" / ") || "No especificadas")}</span>
+          </div>
+          <div class="criteria-list">
+            ${records.map((item) => `
+              <section class="criteria-item">
+                <div class="criteria-item-head">
+                  <strong>${escapeHtml(item.zona || item.codigo_abastecimiento)}</strong>
+                  <span class="criteria-kind ${item.tipo === "Facilidad" ? "facility" : item.tipo === "Restricción" ? "restriction" : "special"}">
+                    ${escapeHtml(item.tipo)}
+                  </span>
+                </div>
+                <dl>
+                  <div><dt>Detalle</dt><dd>${escapeHtml(item.detalle)}</dd></div>
+                  <div><dt>Código</dt><dd>${escapeHtml(item.codigo_abastecimiento)}</dd></div>
+                  <div><dt>Zona operativa</dt><dd>${escapeHtml(item.zona_operativa)}</dd></div>
+                </dl>
+              </section>
+            `).join("")}
+          </div>
+        </div>
+      </article>
+    `;
+  }
+
   function buildSystemsLayer() {
     if (systemsLayer) map.removeLayer(systemsLayer);
     const features = selectedCondition === "Todos"
@@ -321,6 +360,55 @@
           "ASADA",
           item.properties.codigo ? [["Código", item.properties.codigo]] : [],
         ));
+      },
+    });
+
+    layerStore.thiessen = polygonLayer(
+      data.thiessen,
+      {
+        color: "#008b98",
+        weight: 1.2,
+        dashArray: "5 4",
+        fillColor: "#42c4cb",
+        fillOpacity: 0.11,
+      },
+      (p) => simplePopup(p.operador, "Cobertura ASADA estimada", [
+        ["Código", p.codigo],
+        ["Alcance", p.alcance],
+        ["Método", p.metodo],
+      ]),
+      "estimatedCoverage",
+    );
+
+    const criteriaBySystem = new Map();
+    for (const feature of data.criteria.features) {
+      const properties = feature.properties;
+      const records = criteriaBySystem.get(properties.codigo_sistema) || [];
+      records.push(properties);
+      criteriaBySystem.set(properties.codigo_sistema, records);
+    }
+    const criteriaStyle = {
+      color: "#8d4b16",
+      weight: 2,
+      dashArray: "8 5",
+      fillColor: "#f2a23a",
+      fillOpacity: 0.08,
+    };
+    layerStore.criteria = L.geoJSON(data.criteria, {
+      pane: "criteria",
+      style: { ...criteriaStyle, pane: "criteria" },
+      onEachFeature: (item, layer) => {
+        const records = criteriaBySystem.get(item.properties.codigo_sistema) || [item.properties];
+        const types = [...new Set(records.map((record) => record.tipo))].join(" / ");
+        layer.bindPopup(criteriaPopup(item.properties, records), { maxWidth: 390 });
+        layer.bindTooltip(
+          `${escapeHtml(item.properties.codigo_sistema)} · ${escapeHtml(types)}`,
+          { sticky: true, direction: "top", opacity: 0.94 },
+        );
+        layer.on({
+          mouseover: () => layer.setStyle({ weight: 3.5, fillOpacity: 0.16 }),
+          mouseout: () => layer.setStyle({ ...criteriaStyle, pane: "criteria" }),
+        });
       },
     });
 
@@ -768,12 +856,14 @@
 
   async function initialize() {
     try {
-      const [metadata, systems, municipal, esph, asadas, ona, protectedAreas, districts] = await Promise.all([
+      const [metadata, systems, municipal, esph, asadas, thiessen, criteria, ona, protectedAreas, districts] = await Promise.all([
         loadJson("metadata", DATA_FILES.metadata),
         loadJson("systems", DATA_FILES.systems),
         loadJson("municipal", DATA_FILES.municipal),
         loadJson("esph", DATA_FILES.esph),
         loadJson("asadas", DATA_FILES.asadas),
+        loadJson("thiessen", DATA_FILES.thiessen),
+        loadJson("criteria", DATA_FILES.criteria),
         loadJson("ona", DATA_FILES.ona),
         loadJson("protected", DATA_FILES.protected),
         loadJson("districts", DATA_FILES.districts),
@@ -785,6 +875,8 @@
         municipal,
         esph,
         asadas,
+        thiessen,
+        criteria,
         ona,
         protected: protectedAreas,
         districts,
