@@ -67,7 +67,7 @@
   map.createPane("reference").style.zIndex = 330;
   map.createPane("estimatedCoverage").style.zIndex = 345;
   map.createPane("operators").style.zIndex = 360;
-  map.createPane("criteria").style.zIndex = 390;
+  map.createPane("criteria").style.zIndex = 690;
   map.createPane("systems").style.zIndex = 430;
   map.createPane("operatorPoints").style.zIndex = 470;
   map.createPane("drawings").style.zIndex = 650;
@@ -388,11 +388,12 @@
       criteriaBySystem.set(properties.codigo_sistema, records);
     }
     const criteriaStyle = {
-      color: "#8d4b16",
-      weight: 2,
-      dashArray: "8 5",
-      fillColor: "#f2a23a",
-      fillOpacity: 0.08,
+      color: "#b00020",
+      weight: 5,
+      opacity: 1,
+      fillColor: "#ff3d00",
+      fillOpacity: 0.42,
+      className: "criteria-dominant",
     };
     layerStore.criteria = L.geoJSON(data.criteria, {
       pane: "criteria",
@@ -400,14 +401,32 @@
       onEachFeature: (item, layer) => {
         const records = criteriaBySystem.get(item.properties.codigo_sistema) || [item.properties];
         const types = [...new Set(records.map((record) => record.tipo))].join(" / ");
-        layer.bindPopup(criteriaPopup(item.properties, records), { maxWidth: 390 });
+        layer.bindPopup(criteriaPopup(item.properties, records), {
+          maxWidth: 390,
+          autoPan: false,
+          closeButton: false,
+          offset: [0, -8],
+        });
         layer.bindTooltip(
           `${escapeHtml(item.properties.codigo_sistema)} · ${escapeHtml(types)}`,
           { sticky: true, direction: "top", opacity: 0.94 },
         );
         layer.on({
-          mouseover: () => layer.setStyle({ weight: 3.5, fillOpacity: 0.16 }),
-          mouseout: () => layer.setStyle({ ...criteriaStyle, pane: "criteria" }),
+          mouseover: (event) => {
+            layerStore.criteria.bringToFront();
+            layer.setStyle({
+              color: "#7a0015",
+              weight: 7,
+              fillColor: "#ffea00",
+              fillOpacity: 0.58,
+            });
+            layer.openPopup(event.latlng);
+          },
+          mousemove: (event) => layer.getPopup()?.setLatLng(event.latlng),
+          mouseout: () => {
+            layer.closePopup();
+            layer.setStyle({ ...criteriaStyle, pane: "criteria" });
+          },
         });
       },
     });
@@ -764,7 +783,11 @@
         if (!layer) return;
         if (input.checked) layer.addTo(map);
         else map.removeLayer(layer);
-        systemsLayer?.bringToFront();
+        if (map.hasLayer(layerStore.criteria)) {
+          layerStore.criteria.bringToFront();
+        } else {
+          systemsLayer?.bringToFront();
+        }
       });
     });
 
