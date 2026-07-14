@@ -1,7 +1,7 @@
-# ACH GAM VISOR
+# Visor de Estado Hídrico del Gran Área Metropolitana
 
-Visor público de condición hídrica y coberturas de abastecimiento de agua
-potable en la Gran Área Metropolitana de Costa Rica. La aplicación se ejecuta
+Visor de condición hídrica y coberturas de abastecimiento de agua potable en la
+Gran Área Metropolitana de Costa Rica. La aplicación se ejecuta
 con Streamlit e incorpora una interfaz cartográfica Leaflet autocontenida.
 
 ## Funciones disponibles
