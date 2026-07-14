@@ -151,11 +151,17 @@ required_map_tokens = (
     "criteriaPopup",
     "data.thiessen",
     "criteria-dominant",
-    "layer.openPopup(event.latlng)",
+    "criteria-facility-pattern",
+    "criteria-restriction-pattern",
+    "criteria-mixed-pattern",
+    "closeButton: true",
 )
 for token in required_map_tokens:
     if token not in map_source:
         FAILURES.append(f"map/app.js: falta la herramienta requerida: {token}")
+
+if "layer.openPopup(event.latlng)" in map_source:
+    FAILURES.append("map/app.js: el popup de criterios todavía se abre al pasar el mouse")
 
 criteria_features = collections.get("criterios-especiales.geojson", {}).get(
     "features", []
