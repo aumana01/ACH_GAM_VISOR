@@ -10,6 +10,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
+DEPLOYMENT_ENTRYPOINT = ROOT / "ACH_GAM_VISOR" / "ACH_GAM_VISOR" / "app.py"
 rendered: dict[str, object] = {}
 
 
@@ -50,7 +51,7 @@ sys.modules.update(
     }
 )
 
-runpy.run_path(str(ROOT / "app.py"), run_name="__main__")
+runpy.run_path(str(DEPLOYMENT_ENTRYPOINT), run_name="__main__")
 
 if rendered.get("error"):
     raise RuntimeError(rendered["error"])
