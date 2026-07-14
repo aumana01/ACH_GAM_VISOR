@@ -73,6 +73,34 @@
             <datalist id="systemOptions"></datalist>
             <button class="primary-button" type="submit">Ubicar</button>
           </form>
+          <div class="coordinate-search-block">
+            <p>Buscar coordenadas WGS84</p>
+            <form class="coordinate-search-row" id="coordinateSearchForm">
+              <label>
+                <span>Latitud</span>
+                <input
+                  id="coordinateLatitude"
+                  type="text"
+                  inputmode="decimal"
+                  placeholder="9.932500"
+                  autocomplete="off"
+                  required
+                >
+              </label>
+              <label>
+                <span>Longitud</span>
+                <input
+                  id="coordinateLongitude"
+                  type="text"
+                  inputmode="decimal"
+                  placeholder="-84.079600"
+                  autocomplete="off"
+                  required
+                >
+              </label>
+              <button class="primary-button" type="submit">Ir</button>
+            </form>
+          </div>
           <div class="filter-tabs" role="group" aria-label="Filtrar por condición">
             <button class="filter-tab active" type="button" data-condition="Todos">Todos</button>
             <button class="filter-tab" type="button" data-condition="Déficit">Déficit</button>
