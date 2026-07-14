@@ -186,6 +186,8 @@ required_map_tokens = (
     "CATEGORY_INFO",
     "openCategoryInfo",
     "popup-category-info",
+    "metadataLabels",
+    "if (target) target.textContent = value",
 )
 for token in required_map_tokens:
     if token not in map_source:
@@ -193,6 +195,16 @@ for token in required_map_tokens:
 
 if "layer.openPopup(event.latlng)" in map_source:
     FAILURES.append("map/app.js: el popup de criterios todavía se abre al pasar el mouse")
+
+unsafe_text_targets = re.findall(
+    r'document\.getElementById\("([^"]+)"\)\.textContent',
+    map_source,
+)
+if unsafe_text_targets:
+    FAILURES.append(
+        "map/app.js: hay actualizaciones de texto sin validar el elemento: "
+        + ", ".join(sorted(set(unsafe_text_targets)))
+    )
 
 styles_source = (ROOT / "map" / "styles.css").read_text(encoding="utf-8")
 if ".criteria-dominant:hover" in styles_source:
