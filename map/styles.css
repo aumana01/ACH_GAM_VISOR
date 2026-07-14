@@ -440,11 +440,6 @@ button {
   filter: drop-shadow(0 0 3px rgba(154, 101, 0, 0.48));
 }
 
-.criteria-dominant:hover {
-  stroke-width: 6px;
-  filter: drop-shadow(0 0 6px rgba(37, 66, 87, 0.82));
-}
-
 .legend-list {
   display: grid;
   gap: 0.52rem;
