@@ -180,6 +180,9 @@ required_map_tokens = (
     "criteria-restriction-pattern",
     "criteria-mixed-pattern",
     "closeButton: true",
+    "CATEGORY_INFO",
+    "openCategoryInfo",
+    "popup-category-info",
 )
 for token in required_map_tokens:
     if token not in map_source:
