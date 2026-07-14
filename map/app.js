@@ -32,6 +32,7 @@
   let messageTimer = null;
   let pinMode = false;
   let coordinatePin = null;
+  let coordinateHighlight = null;
   let measuring = false;
   let measurementPoints = [];
 
@@ -41,6 +42,9 @@
     searchForm: document.getElementById("systemSearchForm"),
     searchInput: document.getElementById("systemSearch"),
     searchOptions: document.getElementById("systemOptions"),
+    coordinateForm: document.getElementById("coordinateSearchForm"),
+    coordinateLatitude: document.getElementById("coordinateLatitude"),
+    coordinateLongitude: document.getElementById("coordinateLongitude"),
     pinTool: document.getElementById("pinTool"),
     measureTool: document.getElementById("measureTool"),
     importTool: document.getElementById("importTool"),
@@ -71,6 +75,7 @@
   map.createPane("systems").style.zIndex = 430;
   map.createPane("operatorPoints").style.zIndex = 470;
   map.createPane("drawings").style.zIndex = 650;
+  map.createPane("coordinatePins").style.zIndex = 695;
 
   const baseMaps = {
     "Calles · OpenStreetMap": L.tileLayer(
@@ -684,8 +689,37 @@
     `;
   }
 
-  function placeCoordinatePin(latlng) {
+  function updateCoordinateInputs(latlng) {
+    elements.coordinateLatitude.value = latlng.lat.toFixed(6);
+    elements.coordinateLongitude.value = latlng.lng.toFixed(6);
+  }
+
+  function clearCoordinateHighlight() {
+    if (!coordinateHighlight) return;
+    map.removeLayer(coordinateHighlight);
+    coordinateHighlight = null;
+  }
+
+  function highlightCoordinate(latlng) {
+    clearCoordinateHighlight();
+    coordinateHighlight = L.circleMarker(latlng, {
+      pane: "coordinatePins",
+      radius: 18,
+      color: "#ffbf00",
+      weight: 4,
+      opacity: 0.96,
+      fillColor: "#20a8e0",
+      fillOpacity: 0.24,
+      interactive: false,
+      className: "coordinate-highlight",
+    }).addTo(map);
+  }
+
+  function placeCoordinatePin(latlng, options = {}) {
+    const { highlight = false, openPopup = true } = options;
     if (coordinatePin) map.removeLayer(coordinatePin);
+    clearCoordinateHighlight();
+    if (highlight) highlightCoordinate(latlng);
     const icon = L.divIcon({
       className: "coordinate-pin",
       html: "",
@@ -695,7 +729,7 @@
     coordinatePin = L.marker(latlng, {
       icon,
       draggable: true,
-      pane: "drawings",
+      pane: "coordinatePins",
       zIndexOffset: 1000,
     }).addTo(map);
     const update = () => coordinatePin.bindPopup(coordinatePopup(coordinatePin.getLatLng()), {
@@ -704,10 +738,42 @@
     });
     update();
     coordinatePin.on("dragend", () => {
+      clearCoordinateHighlight();
       update();
+      updateCoordinateInputs(coordinatePin.getLatLng());
       coordinatePin.openPopup();
     });
-    coordinatePin.openPopup();
+    updateCoordinateInputs(latlng);
+    if (openPopup) coordinatePin.openPopup();
+  }
+
+  function parseCoordinate(value) {
+    const token = String(value ?? "").trim().replace(",", ".");
+    if (!/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$/.test(token)) return null;
+    const number = Number(token);
+    return Number.isFinite(number) ? number : null;
+  }
+
+  function locateCoordinate() {
+    const latitude = parseCoordinate(elements.coordinateLatitude.value);
+    const longitude = parseCoordinate(elements.coordinateLongitude.value);
+    if (latitude === null || longitude === null) {
+      showMessage("Ingrese latitud y longitud WGS84 en grados decimales.", true);
+      return;
+    }
+    if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
+      showMessage("La latitud debe estar entre -90 y 90 y la longitud entre -180 y 180.", true);
+      return;
+    }
+
+    stopCoordinateMode();
+    finishMeasurement();
+    const latlng = L.latLng(latitude, longitude);
+    placeCoordinatePin(latlng, { highlight: true, openPopup: false });
+    map.flyTo(latlng, 17, { animate: true, duration: 0.9 });
+    window.setTimeout(() => coordinatePin?.openPopup(), 950);
+    showMessage(`Punto WGS84 ubicado: ${latitude.toFixed(6)}, ${longitude.toFixed(6)}.`);
+    closeSidebarOnMobile();
   }
 
   function startCoordinateMode() {
@@ -848,6 +914,11 @@
     elements.searchForm.addEventListener("submit", (event) => {
       event.preventDefault();
       locateSystem(elements.searchInput.value);
+    });
+
+    elements.coordinateForm.addEventListener("submit", (event) => {
+      event.preventDefault();
+      locateCoordinate();
     });
 
     document.getElementById("clearLayers").addEventListener("click", () => {
