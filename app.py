@@ -44,10 +44,11 @@ SCRIPT_FILES = (
     MAP_DIR / "vendor" / "screenshoter" / "leaflet-simple-map-screenshoter.js",
     MAP_DIR / "app.js",
 )
+BRAND_LOGO = MAP_DIR / "assets" / "logo-aya-65.jpg"
 
 
 st.set_page_config(
-    page_title="ACH GAM VISOR",
+    page_title="Visor de Estado Hídrico del Gran Área Metropolitana",
     page_icon="💧",
     layout="wide",
     initial_sidebar_state="collapsed",
@@ -65,7 +66,7 @@ st_autorefresh(
 def _asset_signature() -> tuple[tuple[str, int, int], ...]:
     """Firma liviana que invalida el caché cuando se sustituye un archivo."""
 
-    paths = [MAP_DIR / "index.html", *STYLE_FILES, *SCRIPT_FILES]
+    paths = [MAP_DIR / "index.html", BRAND_LOGO, *STYLE_FILES, *SCRIPT_FILES]
     paths.extend(DATA_DIR / filename for filename in DATA_FILES.values())
     result = []
     for path in paths:
@@ -88,6 +89,14 @@ def _inline_leaflet_images(css: str) -> str:
         return f'url("data:{mime_type};base64,{payload}")'
 
     return pattern.sub(replace, css)
+
+
+def _asset_data_uri(path: Path) -> str:
+    """Convierte una imagen local en una URI autocontenida para el iframe."""
+
+    mime_type = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
+    payload = base64.b64encode(path.read_bytes()).decode("ascii")
+    return f"data:{mime_type};base64,{payload}"
 
 
 def _safe_script(source: str) -> str:
@@ -123,6 +132,10 @@ def build_map_html(signature: tuple[tuple[str, int, int], ...]) -> str:
     html = html.replace(
         '<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">',
         "",
+    )
+    html = html.replace(
+        'src="assets/logo-aya-65.jpg"',
+        f'src="{_asset_data_uri(BRAND_LOGO)}"',
     )
 
     embedded_data = {
@@ -177,6 +190,6 @@ try:
     )
 except (FileNotFoundError, json.JSONDecodeError, OSError) as error:
     st.error(
-        "No fue posible cargar ACH GAM VISOR. "
+        "No fue posible cargar el Visor de Estado Hídrico del Gran Área Metropolitana. "
         f"Revise los archivos públicos del proyecto: {error}"
     )
