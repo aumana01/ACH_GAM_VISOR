@@ -50,7 +50,7 @@ atributos públicos permitidos.
 | `municipalidades.geojson` | `operador`, `sistema` |
 | `esph.geojson` | `operador`, `sistema` |
 | `asadas.geojson` | `codigo`, `operador` |
-| `cobertura-thiessen-asadas.geojson` | `codigo`, `operador`, `alcance`, `metodo` |
+| `cobertura-thiessen-asadas.geojson` | `codigo`, `referencia`, `provincia`, `canton`, `distrito`, `alcance`, `metodo` |
 | `criterios-especiales.geojson` | `codigo_sistema`, `nombre_sistema`, `codigo_abastecimiento`, `zona`, `zona_operativa`, `tipo`, `detalle` |
 | `onas.geojson` | `operador`, `sistema` |
 | `areas-protegidas.geojson` | `codigo`, `nombre`, `categoria` |
@@ -61,6 +61,34 @@ Después de sustituir archivos, ejecute:
 ```bash
 python scripts/check_public_data.py
 ```
+
+### Actualización directa desde SHP
+
+Para actualizar únicamente Cobertura Thiessen o Criterios especiales, use el
+ZIP original del Shapefile (`.shp`, `.shx`, `.dbf`, `.prj` y `.cpg`). El
+importador conserva todos los polígonos, anillos y vértices; no simplifica ni
+reemplaza la geometría por otra capa. También reproyecta CRTM05 a WGS84 cuando
+corresponde y elimina los atributos que no deben publicarse.
+
+```bash
+python scripts/import_shapefile_layers.py \
+  --thiessen "/ruta/Cobertura_Thiessen_ASADAS_UTAPS.zip" \
+  --criteria "/ruta/Criterios Especiales CCH GAM.zip"
+python scripts/check_public_data.py
+```
+
+Es posible actualizar solo la capa que cambió. Por ejemplo, para Criterios
+especiales:
+
+```bash
+python scripts/import_shapefile_layers.py \
+  --criteria "/ruta/Criterios Especiales CCH GAM.zip"
+python scripts/check_public_data.py
+```
+
+La simbología se determina automáticamente con `cond_espec`: Artículo 43 se
+muestra como facilidad azul hachurada y las restricciones en rojo/terracota
+hachurado. El popup se abre únicamente al hacer clic en la geometría.
 
 Para regenerar todos los archivos desde las fuentes originales:
 
