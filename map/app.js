@@ -194,6 +194,82 @@
       .toUpperCase();
   }
 
+  function criteriaVisualKind(records) {
+    const hasArticle43 = records.some(
+      (item) => normalized(item.tipo) === "FACILIDAD"
+        && normalized(item.detalle).includes("ARTICULO43"),
+    );
+    const hasRestriction = records.some(
+      (item) => normalized(item.tipo) === "RESTRICCION",
+    );
+
+    if (hasArticle43 && hasRestriction) return "mixed";
+    if (hasArticle43) return "facility";
+    if (hasRestriction) return "restriction";
+    return "special";
+  }
+
+  function criteriaStyle(kind) {
+    const styles = {
+      facility: {
+        color: "#1e6a9e",
+        weight: 3,
+        fillColor: "#d9edff",
+        fillOpacity: 0.76,
+      },
+      restriction: {
+        color: "#9f2016",
+        weight: 4,
+        fillColor: "#fff0ed",
+        fillOpacity: 0.78,
+      },
+      mixed: {
+        color: "#73415f",
+        weight: 4,
+        fillColor: "#f4eef5",
+        fillOpacity: 0.8,
+      },
+      special: {
+        color: "#9a6500",
+        weight: 3,
+        fillColor: "#fff4d6",
+        fillOpacity: 0.72,
+      },
+    };
+    return {
+      ...styles[kind],
+      opacity: 1,
+      className: `criteria-dominant criteria-${kind}`,
+    };
+  }
+
+  function ensureCriteriaPatterns() {
+    const svg = map.getPane("criteria")?.querySelector("svg");
+    if (!svg || svg.querySelector("#criteria-facility-pattern")) return;
+
+    const defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
+    defs.innerHTML = `
+      <pattern id="criteria-facility-pattern" width="12" height="12" patternUnits="userSpaceOnUse" patternTransform="rotate(35)">
+        <rect width="12" height="12" fill="#d9edff" fill-opacity="0.86"></rect>
+        <line x1="0" y1="0" x2="0" y2="12" stroke="#2878ad" stroke-width="2.5" stroke-opacity="0.72"></line>
+      </pattern>
+      <pattern id="criteria-restriction-pattern" width="12" height="12" patternUnits="userSpaceOnUse" patternTransform="rotate(-35)">
+        <rect width="12" height="12" fill="#fff0ed" fill-opacity="0.9"></rect>
+        <line x1="0" y1="0" x2="0" y2="12" stroke="#b42318" stroke-width="3" stroke-opacity="0.82"></line>
+      </pattern>
+      <pattern id="criteria-mixed-pattern" width="14" height="14" patternUnits="userSpaceOnUse">
+        <rect width="14" height="14" fill="#f4eef5" fill-opacity="0.9"></rect>
+        <path d="M-3 3L3-3M0 14L14 0M11 17L17 11" stroke="#2878ad" stroke-width="2.2" stroke-opacity="0.72"></path>
+        <path d="M-3 11L3 17M0 0L14 14M11-3L17 3" stroke="#b42318" stroke-width="2.2" stroke-opacity="0.78"></path>
+      </pattern>
+      <pattern id="criteria-special-pattern" width="12" height="12" patternUnits="userSpaceOnUse" patternTransform="rotate(35)">
+        <rect width="12" height="12" fill="#fff4d6" fill-opacity="0.88"></rect>
+        <line x1="0" y1="0" x2="0" y2="12" stroke="#a66a00" stroke-width="2.2" stroke-opacity="0.68"></line>
+      </pattern>
+    `;
+    svg.prepend(defs);
+  }
+
   function systemColor(ich) {
     return COLORS[ich] || COLORS.unknown;
   }
@@ -387,48 +463,43 @@
       records.push(properties);
       criteriaBySystem.set(properties.codigo_sistema, records);
     }
-    const criteriaStyle = {
-      color: "#b00020",
-      weight: 5,
-      opacity: 1,
-      fillColor: "#ff3d00",
-      fillOpacity: 0.42,
-      className: "criteria-dominant",
-    };
-    layerStore.criteria = L.geoJSON(data.criteria, {
+
+    const seenCriteriaGeometries = new Set();
+    const criteriaFeatures = data.criteria.features.filter((feature) => {
+      const key = `${feature.properties.codigo_sistema}|${JSON.stringify(feature.geometry)}`;
+      if (seenCriteriaGeometries.has(key)) return false;
+      seenCriteriaGeometries.add(key);
+      return true;
+    });
+
+    layerStore.criteria = L.geoJSON({
+      type: "FeatureCollection",
+      features: criteriaFeatures,
+    }, {
       pane: "criteria",
-      style: { ...criteriaStyle, pane: "criteria" },
+      style: (feature) => {
+        const records = criteriaBySystem.get(feature.properties.codigo_sistema)
+          || [feature.properties];
+        return {
+          ...criteriaStyle(criteriaVisualKind(records)),
+          pane: "criteria",
+        };
+      },
       onEachFeature: (item, layer) => {
         const records = criteriaBySystem.get(item.properties.codigo_sistema) || [item.properties];
-        const types = [...new Set(records.map((record) => record.tipo))].join(" / ");
         layer.bindPopup(criteriaPopup(item.properties, records), {
           maxWidth: 390,
-          autoPan: false,
-          closeButton: false,
+          autoPan: true,
+          closeButton: true,
           offset: [0, -8],
         });
-        layer.bindTooltip(
-          `${escapeHtml(item.properties.codigo_sistema)} · ${escapeHtml(types)}`,
-          { sticky: true, direction: "top", opacity: 0.94 },
-        );
-        layer.on({
-          mouseover: (event) => {
-            layerStore.criteria.bringToFront();
-            layer.setStyle({
-              color: "#7a0015",
-              weight: 7,
-              fillColor: "#ffea00",
-              fillOpacity: 0.58,
-            });
-            layer.openPopup(event.latlng);
-          },
-          mousemove: (event) => layer.getPopup()?.setLatLng(event.latlng),
-          mouseout: () => {
-            layer.closePopup();
-            layer.setStyle({ ...criteriaStyle, pane: "criteria" });
-          },
-        });
       },
+    });
+    layerStore.criteria.on("add", () => {
+      window.requestAnimationFrame(() => {
+        ensureCriteriaPatterns();
+        layerStore.criteria.bringToFront();
+      });
     });
 
     layerStore.ona = polygonLayer(
