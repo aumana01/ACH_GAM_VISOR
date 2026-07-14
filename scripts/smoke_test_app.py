@@ -70,6 +70,9 @@ required_tokens = (
     '"alcance":"Cobertura somera/estimada"',
     '"tipo":"Facilidad"',
     '"tipo":"Restricción"',
+    "Metodología para el Análisis de Capacidad Hídrica",
+    "openCategoryInfo",
+    "Conocer esta categoría hídrica",
 )
 for token in required_tokens:
     if token not in html:
