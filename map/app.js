@@ -622,9 +622,10 @@
         fillColor: "#ffffff",
         fillOpacity: 0,
       },
-      (p) => simplePopup(p.distrito, "Distrito", [
-        ["Cantón", p.canton],
+      (p) => simplePopup("Ubicación administrativa", "Distrito GAM", [
         ["Provincia", p.provincia],
+        ["Cantón", p.canton],
+        ["Distrito", p.distrito],
       ]),
       "reference",
     );

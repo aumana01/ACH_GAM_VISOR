@@ -287,8 +287,8 @@ districts = map_features(
     read_geojson(FILES["districts"]),
     lambda source: {
         "provincia": clean(source.get("provincia")),
-        "canton": clean(source.get("canton")),
-        "distrito": clean(source.get("distrito")),
+        "canton": clean(source.get("ncanton") or source.get("canton")),
+        "distrito": clean(source.get("ndistrito") or source.get("distrito")),
     },
     within_gam=True,
     tolerance=0.00012,

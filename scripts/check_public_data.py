@@ -128,6 +128,18 @@ for feature in systems:
     if ich not in {"I", "II", "III", "IV"}:
         FAILURES.append(f"{code or 'Sin código'}: clasificación ICH inválida.")
 
+district_features = collections.get("distritos.geojson", {}).get("features", [])
+for feature in district_features:
+    properties = feature.get("properties") or {}
+    for field in ("provincia", "canton", "distrito"):
+        value = str(properties.get(field) or "").strip()
+        if not value:
+            FAILURES.append(f"distritos.geojson: falta el nombre de {field}.")
+        elif value.isdigit():
+            FAILURES.append(
+                f"distritos.geojson: {field} debe mostrar un nombre, no el código {value}."
+            )
+
 metadata = load_json(DATA_DIR / "metadata.json")
 deficit = sum(
     item.get("condicion") == "Déficit" for item in unique_systems.values()
@@ -191,6 +203,7 @@ required_map_tokens = (
     "layerFactories.municipal",
     "layerFactories.ona",
     "Organización de usuarios de agua",
+    "Ubicación administrativa",
 )
 for token in required_map_tokens:
     if token not in map_source:
