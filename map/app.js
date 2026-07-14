@@ -1138,10 +1138,16 @@
       populateSearch();
       bindInterface();
 
-      document.getElementById("systemCount").textContent = metadata.systems;
-      document.getElementById("deficitCount").textContent = metadata.deficit;
-      document.getElementById("surplusCount").textContent = metadata.surplus;
-      document.getElementById("dataPeriod").textContent = metadata.period || "No indicado";
+      const metadataLabels = {
+        systemCount: metadata.systems,
+        deficitCount: metadata.deficit,
+        surplusCount: metadata.surplus,
+        dataPeriod: metadata.period || "No indicado",
+      };
+      Object.entries(metadataLabels).forEach(([id, value]) => {
+        const target = document.getElementById(id);
+        if (target) target.textContent = value;
+      });
 
       map.fitBounds(systemsLayer.getBounds(), { padding: [18, 18] });
       elements.loading.classList.add("hidden");
