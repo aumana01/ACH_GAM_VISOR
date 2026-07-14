@@ -147,10 +147,20 @@ required_app_tokens = (
     "from streamlit_autorefresh import st_autorefresh",
     "st_autorefresh(",
     "components.html(",
+    "logo-aya-65.jpg",
+    "Visor de Estado Hídrico del Gran Área Metropolitana",
 )
 for token in required_app_tokens:
     if token not in app_source:
         FAILURES.append(f"app.py: falta la integración requerida: {token}")
+
+index_source = (ROOT / "map" / "index.html").read_text(encoding="utf-8")
+if "Visor de Estado Hídrico del Gran Área Metropolitana" not in index_source:
+    FAILURES.append("map/index.html: falta el título oficial del visor")
+if "Información pública" in index_source:
+    FAILURES.append("map/index.html: todavía muestra el texto Información pública")
+if not (ROOT / "map" / "assets" / "logo-aya-65.jpg").exists():
+    FAILURES.append("map/assets: falta el logo institucional")
 
 map_source = (ROOT / "map" / "app.js").read_text(encoding="utf-8")
 required_map_tokens = (
