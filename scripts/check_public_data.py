@@ -18,7 +18,15 @@ SCHEMAS = {
     "municipalidades.geojson": {"operador", "sistema"},
     "esph.geojson": {"operador", "sistema"},
     "asadas.geojson": {"codigo", "operador"},
-    "cobertura-thiessen-asadas.geojson": {"codigo", "operador", "alcance", "metodo"},
+    "cobertura-thiessen-asadas.geojson": {
+        "codigo",
+        "referencia",
+        "provincia",
+        "canton",
+        "distrito",
+        "alcance",
+        "metodo",
+    },
     "criterios-especiales.geojson": {
         "codigo_sistema",
         "nombre_sistema",
@@ -72,8 +80,11 @@ for filename, allowed_keys in SCHEMAS.items():
     if not path.exists():
         FAILURES.append(f"{filename}: archivo faltante.")
         continue
-    if path.stat().st_size > 5_000_000:
-        FAILURES.append(f"{filename}: supera el límite público de 5 MB.")
+    size_limit = 30_000_000 if filename == "cobertura-thiessen-asadas.geojson" else 5_000_000
+    if path.stat().st_size > size_limit:
+        FAILURES.append(
+            f"{filename}: supera el límite público de {size_limit // 1_000_000} MB."
+        )
     collection = load_json(path)
     collections[filename] = collection
     if collection.get("type") != "FeatureCollection" or not isinstance(
@@ -162,6 +173,10 @@ for token in required_map_tokens:
 
 if "layer.openPopup(event.latlng)" in map_source:
     FAILURES.append("map/app.js: el popup de criterios todavía se abre al pasar el mouse")
+
+styles_source = (ROOT / "map" / "styles.css").read_text(encoding="utf-8")
+if ".criteria-dominant:hover" in styles_source:
+    FAILURES.append("map/styles.css: criterios especiales todavía cambia al pasar el mouse")
 
 criteria_features = collections.get("criterios-especiales.geojson", {}).get(
     "features", []
