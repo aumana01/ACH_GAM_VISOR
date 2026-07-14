@@ -251,6 +251,56 @@ button {
   box-shadow: 0 0 0 3px rgba(32, 168, 224, 0.16);
 }
 
+.coordinate-search-block {
+  margin-top: 0.72rem;
+  padding-top: 0.68rem;
+  border-top: 1px solid #e1eaf1;
+}
+
+.coordinate-search-block > p {
+  margin: 0 0 0.42rem;
+  color: #506478;
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+
+.coordinate-search-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 0.42rem;
+}
+
+.coordinate-search-row label span {
+  display: block;
+  margin-bottom: 0.2rem;
+  color: var(--muted);
+  font-size: 0.61rem;
+  font-weight: 750;
+}
+
+.coordinate-search-row input {
+  width: 100%;
+  min-width: 0;
+  height: 38px;
+  padding: 0 0.52rem;
+  color: var(--ink);
+  font-size: 0.72rem;
+  border: 1px solid #bbcbd9;
+  border-radius: 8px;
+  outline: none;
+}
+
+.coordinate-search-row input:focus {
+  border-color: var(--aya-cyan);
+  box-shadow: 0 0 0 3px rgba(32, 168, 224, 0.16);
+}
+
+.coordinate-search-row .primary-button {
+  min-width: 46px;
+  height: 38px;
+}
+
 .primary-button {
   min-width: 68px;
   padding: 0 0.75rem;
@@ -773,6 +823,29 @@ button {
   content: "";
   border-radius: 50%;
   background: white;
+}
+
+.coordinate-highlight {
+  transform-origin: center;
+  animation: coordinate-pulse 1.35s ease-out infinite;
+}
+
+@keyframes coordinate-pulse {
+  0% {
+    stroke-opacity: 0.96;
+    stroke-width: 4px;
+    fill-opacity: 0.3;
+  }
+  70% {
+    stroke-opacity: 0.18;
+    stroke-width: 11px;
+    fill-opacity: 0.06;
+  }
+  100% {
+    stroke-opacity: 0;
+    stroke-width: 13px;
+    fill-opacity: 0;
+  }
 }
 
 .measurement-panel {
