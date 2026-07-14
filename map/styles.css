@@ -407,12 +407,42 @@ button {
 .district-swatch { color: #617386; background: transparent; border-style: dashed; }
 .asada-swatch { color: #028f9f; background: #e8fdff; border-radius: 50%; }
 .thiessen-swatch { color: #008b98; background: rgba(66, 196, 203, 0.16); border-style: dashed; }
-.criteria-swatch { color: #b00020; background: rgba(255, 61, 0, 0.42); border-width: 3px; }
+.criteria-swatch {
+  color: #73415f;
+  border-width: 2px;
+  background:
+    repeating-linear-gradient(45deg, transparent 0 4px, rgba(180, 35, 24, 0.78) 4px 6px, transparent 6px 10px),
+    repeating-linear-gradient(-45deg, #e7f3ff 0 4px, rgba(40, 120, 173, 0.72) 4px 6px, #fff0ed 6px 10px);
+}
 
 .criteria-dominant {
-  filter: drop-shadow(0 0 4px rgba(176, 0, 32, 0.9)) drop-shadow(0 0 9px rgba(255, 61, 0, 0.72));
   stroke-linejoin: round;
-  transition: fill-opacity 120ms ease, stroke-width 120ms ease, fill 120ms ease;
+  transition: filter 120ms ease, stroke-width 120ms ease;
+}
+
+.criteria-facility {
+  fill: url("#criteria-facility-pattern") !important;
+  filter: drop-shadow(0 0 3px rgba(30, 106, 158, 0.5));
+}
+
+.criteria-restriction {
+  fill: url("#criteria-restriction-pattern") !important;
+  filter: drop-shadow(0 0 4px rgba(159, 32, 22, 0.72));
+}
+
+.criteria-mixed {
+  fill: url("#criteria-mixed-pattern") !important;
+  filter: drop-shadow(0 0 4px rgba(115, 65, 95, 0.64));
+}
+
+.criteria-special {
+  fill: url("#criteria-special-pattern") !important;
+  filter: drop-shadow(0 0 3px rgba(154, 101, 0, 0.48));
+}
+
+.criteria-dominant:hover {
+  stroke-width: 6px;
+  filter: drop-shadow(0 0 6px rgba(37, 66, 87, 0.82));
 }
 
 .legend-list {
@@ -658,8 +688,8 @@ button {
   font-weight: 800;
 }
 
-.criteria-kind.restriction { color: #8d321e; background: #ffe5dd; }
-.criteria-kind.facility { color: #11623b; background: #dff4e8; }
+.criteria-kind.restriction { color: #912018; background: #ffe4df; }
+.criteria-kind.facility { color: #155f91; background: #dceeff; }
 .criteria-kind.special { color: #5d4c1d; background: #fff1c6; }
 
 .criteria-item dl {
