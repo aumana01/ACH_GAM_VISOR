@@ -56,6 +56,17 @@ runpy.run_path(str(DEPLOYMENT_ENTRYPOINT), run_name="__main__")
 if rendered.get("error"):
     raise RuntimeError(rendered["error"])
 
+app_source = DEPLOYMENT_ENTRYPOINT.parents[2].joinpath("app.py").read_text(
+    encoding="utf-8"
+)
+for token in (
+    "height: 100dvh",
+    "overflow: hidden !important",
+    'iframe[title="streamlit.components.v1.html"]',
+):
+    if token not in app_source:
+        raise RuntimeError(f"La vista fija de Streamlit no contiene: {token}")
+
 html = rendered.get("source")
 if not isinstance(html, str) or len(html) < 1_000_000:
     raise RuntimeError("La aplicación no generó el documento cartográfico esperado.")
