@@ -448,46 +448,25 @@
         fillColor: "#42c4cb",
         fillOpacity: 0.11,
       },
-      (p) => simplePopup(p.operador, "Cobertura ASADA estimada", [
+      (p) => simplePopup(p.referencia, "Cobertura ASADA somera/estimada", [
         ["Código", p.codigo],
+        ["Ubicación", [p.distrito, p.canton, p.provincia].filter(Boolean).join(", ")],
         ["Alcance", p.alcance],
         ["Método", p.metodo],
       ]),
       "estimatedCoverage",
     );
 
-    const criteriaBySystem = new Map();
-    for (const feature of data.criteria.features) {
-      const properties = feature.properties;
-      const records = criteriaBySystem.get(properties.codigo_sistema) || [];
-      records.push(properties);
-      criteriaBySystem.set(properties.codigo_sistema, records);
-    }
-
-    const seenCriteriaGeometries = new Set();
-    const criteriaFeatures = data.criteria.features.filter((feature) => {
-      const key = `${feature.properties.codigo_sistema}|${JSON.stringify(feature.geometry)}`;
-      if (seenCriteriaGeometries.has(key)) return false;
-      seenCriteriaGeometries.add(key);
-      return true;
-    });
-
-    layerStore.criteria = L.geoJSON({
-      type: "FeatureCollection",
-      features: criteriaFeatures,
-    }, {
+    layerStore.criteria = L.geoJSON(data.criteria, {
       pane: "criteria",
       style: (feature) => {
-        const records = criteriaBySystem.get(feature.properties.codigo_sistema)
-          || [feature.properties];
         return {
-          ...criteriaStyle(criteriaVisualKind(records)),
+          ...criteriaStyle(criteriaVisualKind([feature.properties])),
           pane: "criteria",
         };
       },
       onEachFeature: (item, layer) => {
-        const records = criteriaBySystem.get(item.properties.codigo_sistema) || [item.properties];
-        layer.bindPopup(criteriaPopup(item.properties, records), {
+        layer.bindPopup(criteriaPopup(item.properties, [item.properties]), {
           maxWidth: 390,
           autoPan: true,
           closeButton: true,
