@@ -198,10 +198,22 @@
             </div>
           </div>
           <div class="legend-list">
-            <div><i class="legend-i"></i><span><strong>I</strong> Altamente deficitario</span></div>
-            <div><i class="legend-ii"></i><span><strong>II</strong> Crecimiento máximo alcanzado</span></div>
-            <div><i class="legend-iii"></i><span><strong>III</strong> Transición</span></div>
-            <div><i class="legend-iv"></i><span><strong>IV</strong> Margen disponible</span></div>
+            <div>
+              <i class="legend-i"></i><span><strong>I</strong> Altamente deficitario</span>
+              <button type="button" class="legend-info-button" data-ich-info="I" aria-label="Explicar categoría hídrica I">i</button>
+            </div>
+            <div>
+              <i class="legend-ii"></i><span><strong>II</strong> Crecimiento máximo alcanzado</span>
+              <button type="button" class="legend-info-button" data-ich-info="II" aria-label="Explicar categoría hídrica II">i</button>
+            </div>
+            <div>
+              <i class="legend-iii"></i><span><strong>III</strong> Transición</span>
+              <button type="button" class="legend-info-button" data-ich-info="III" aria-label="Explicar categoría hídrica III">i</button>
+            </div>
+            <div>
+              <i class="legend-iv"></i><span><strong>IV</strong> Margen disponible</span>
+              <button type="button" class="legend-info-button" data-ich-info="IV" aria-label="Explicar categoría hídrica IV">i</button>
+            </div>
           </div>
         </section>
 
@@ -265,6 +277,30 @@
         </div>
       </section>
     </main>
+
+    <dialog class="category-dialog" id="categoryInfoDialog" aria-labelledby="categoryInfoTitle">
+      <article>
+        <header class="category-dialog-header">
+          <div>
+            <span class="category-dialog-code" id="categoryInfoCode">ICH</span>
+            <h2 id="categoryInfoTitle">Categoría hídrica</h2>
+            <p id="categoryInfoRange"></p>
+          </div>
+          <form method="dialog">
+            <button type="submit" class="category-dialog-close" aria-label="Cerrar explicación">×</button>
+          </form>
+        </header>
+        <div class="category-dialog-body">
+          <p class="category-dialog-summary" id="categoryInfoSummary"></p>
+          <h3>Implicaciones operativas posibles</h3>
+          <ul id="categoryInfoActions"></ul>
+          <p class="category-dialog-note" id="categoryInfoNote"></p>
+          <p class="category-dialog-source">
+            Síntesis basada en la “Metodología para el Análisis de Capacidad Hídrica para Sistemas UEN-OS-GAM-2022-00043”.
+          </p>
+        </div>
+      </article>
+    </dialog>
 
     <script src="vendor/leaflet/leaflet.js"></script>
     <script src="vendor/geoman/leaflet-geoman.min.js"></script>
