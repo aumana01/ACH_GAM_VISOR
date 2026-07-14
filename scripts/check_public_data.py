@@ -150,6 +150,8 @@ required_map_tokens = (
     "startMeasurement",
     "criteriaPopup",
     "data.thiessen",
+    "criteria-dominant",
+    "layer.openPopup(event.latlng)",
 )
 for token in required_map_tokens:
     if token not in map_source:
