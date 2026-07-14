@@ -172,11 +172,76 @@ def build_map_html(signature: tuple[tuple[str, int, int], ...]) -> str:
 st.markdown(
     """
     <style>
-      .stApp > header { display: none; }
-      .block-container { max-width: 100%; padding: 0; }
-      [data-testid="stAppViewContainer"] { background: #f4f8fb; }
-      [data-testid="stIFrame"] { display: block; }
-      iframe { display: block; border: 0; }
+      html,
+      body,
+      #root,
+      .stApp {
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        overflow: hidden !important;
+      }
+
+      .stApp > header,
+      footer {
+        display: none !important;
+      }
+
+      [data-testid="stAppViewContainer"],
+      [data-testid="stMain"],
+      .stMain {
+        position: fixed;
+        inset: 0;
+        width: 100%;
+        height: 100vh;
+        height: 100dvh;
+        overflow: hidden !important;
+        background: #f4f8fb;
+      }
+
+      [data-testid="stMainBlockContainer"],
+      .block-container {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        max-width: none;
+        height: 100%;
+        min-height: 0;
+        padding: 0 !important;
+        margin: 0 !important;
+        overflow: hidden !important;
+      }
+
+      [data-testid="stVerticalBlock"] {
+        height: 100%;
+        min-height: 0;
+        gap: 0 !important;
+      }
+
+      /* El autorefresh continúa activo, pero no reserva espacio visual. */
+      [data-testid="stElementContainer"]:has(
+        iframe[title="streamlit_autorefresh.st_autorefresh"]
+      ) {
+        position: absolute;
+        width: 0;
+        height: 0;
+        overflow: hidden;
+      }
+
+      [data-testid="stElementContainer"]:has(
+        iframe[title="streamlit.components.v1.html"]
+      ),
+      [data-testid="stIFrame"],
+      iframe[title="streamlit.components.v1.html"] {
+        display: block;
+        width: 100% !important;
+        height: 100vh !important;
+        height: 100dvh !important;
+        min-height: 0 !important;
+        margin: 0 !important;
+        border: 0;
+        overflow: hidden !important;
+      }
     </style>
     """,
     unsafe_allow_html=True,
@@ -185,7 +250,9 @@ st.markdown(
 try:
     components.html(
         build_map_html(_asset_signature()),
-        height=920,
+        # Altura de respaldo; el CSS exterior la ajusta al alto real de la
+        # ventana para impedir que la página completa tenga desplazamiento.
+        height=1000,
         scrolling=False,
     )
 except (FileNotFoundError, json.JSONDecodeError, OSError) as error:
