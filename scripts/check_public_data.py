@@ -149,6 +149,9 @@ required_app_tokens = (
     "components.html(",
     "logo-aya-65.jpg",
     "Visor de Estado Hídrico del Gran Área Metropolitana",
+    'height: 100dvh',
+    'overflow: hidden !important',
+    'iframe[title="streamlit.components.v1.html"]',
 )
 for token in required_app_tokens:
     if token not in app_source:
