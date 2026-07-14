@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#002b5c">
+    <meta
+      name="description"
+      content="ACH GAM VISOR: condición hídrica y coberturas de abastecimiento de agua potable en la GAM."
+    >
+    <title>ACH GAM VISOR</title>
+    <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="vendor/leaflet/leaflet.css">
+    <link rel="stylesheet" href="vendor/geoman/leaflet-geoman.css">
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <a class="skip-link" href="#map">Saltar al mapa</a>
+    <main class="app-shell">
+      <aside class="sidebar" id="sidebar" aria-label="Panel de consulta">
+        <header class="brand-block">
+          <div class="brand-mark" aria-hidden="true">ACH</div>
+          <div>
+            <p class="eyebrow">Información pública</p>
+            <h1>ACH GAM VISOR</h1>
+          </div>
+          <button
+            class="icon-button close-sidebar"
+            id="closeSidebar"
+            type="button"
+            aria-label="Cerrar panel"
+          >×</button>
+        </header>
+
+        <section class="intro-block">
+          <p>
+            Consulte la condición de los sistemas de abastecimiento y capas de
+            referencia de otros operadores y restricciones territoriales. La
+            barra derecha permite dibujar y agregar texto temporal.
+          </p>
+          <div class="summary-grid" role="group" aria-label="Resumen de sistemas">
+            <div class="summary-card">
+              <span class="summary-value" id="systemCount">—</span>
+              <span class="summary-label">Sistemas</span>
+            </div>
+            <div class="summary-card deficit-card">
+              <span class="summary-value" id="deficitCount">—</span>
+              <span class="summary-label">Con déficit</span>
+            </div>
+            <div class="summary-card surplus-card">
+              <span class="summary-value" id="surplusCount">—</span>
+              <span class="summary-label">Con superávit</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel-section" aria-labelledby="searchTitle">
+          <div class="section-heading">
+            <div>
+              <p class="section-kicker">Consulta</p>
+              <h2 id="searchTitle">Buscar sistema</h2>
+            </div>
+          </div>
+          <form class="search-row" id="systemSearchForm">
+            <label class="sr-only" for="systemSearch">Nombre o código del sistema</label>
+            <input
+              id="systemSearch"
+              type="search"
+              list="systemOptions"
+              placeholder="Ej. ME-A-01 o Tres Ríos"
+              autocomplete="off"
+            >
+            <datalist id="systemOptions"></datalist>
+            <button class="primary-button" type="submit">Ubicar</button>
+          </form>
+          <div class="filter-tabs" role="group" aria-label="Filtrar por condición">
+            <button class="filter-tab active" type="button" data-condition="Todos">Todos</button>
+            <button class="filter-tab" type="button" data-condition="Déficit">Déficit</button>
+            <button class="filter-tab" type="button" data-condition="Superávit">Superávit</button>
+          </div>
+        </section>
+
+        <section class="panel-section" aria-labelledby="layersTitle">
+          <div class="section-heading">
+            <div>
+              <p class="section-kicker">Visualización</p>
+              <h2 id="layersTitle">Capas del mapa</h2>
+            </div>
+            <button class="text-button" id="clearLayers" type="button">Restablecer</button>
+          </div>
+
+          <fieldset class="layer-group priority-group">
+            <legend>Capa principal</legend>
+            <label class="layer-toggle">
+              <input type="checkbox" data-layer="systems" checked disabled>
+              <span class="toggle-control" aria-hidden="true"></span>
+              <span>
+                <strong>Sistemas GAM</strong>
+                <small>Condición hídrica e ICH</small>
+              </span>
+              <i class="layer-swatch systems-swatch" aria-hidden="true"></i>
+            </label>
+          </fieldset>
+
+          <fieldset class="layer-group">
+            <legend>Otros operadores</legend>
+            <label class="layer-toggle">
+              <input type="checkbox" data-layer="municipal">
+              <span class="toggle-control" aria-hidden="true"></span>
+              <span><strong>Municipalidades</strong><small>Coberturas aledañas</small></span>
+              <i class="layer-swatch municipal-swatch" aria-hidden="true"></i>
+            </label>
+            <label class="layer-toggle">
+              <input type="checkbox" data-layer="esph">
+              <span class="toggle-control" aria-hidden="true"></span>
+              <span><strong>ESPH</strong><small>Cobertura de agua potable</small></span>
+              <i class="layer-swatch esph-swatch" aria-hidden="true"></i>
+            </label>
+            <label class="layer-toggle">
+              <input type="checkbox" data-layer="asadas">
+              <span class="toggle-control" aria-hidden="true"></span>
+              <span><strong>ASADAS</strong><small>Ubicación de operadores</small></span>
+              <i class="layer-swatch asada-swatch" aria-hidden="true"></i>
+            </label>
+          </fieldset>
+
+          <fieldset class="layer-group">
+            <legend>Restricciones y referencia</legend>
+            <label class="layer-toggle">
+              <input type="checkbox" data-layer="ona">
+              <span class="toggle-control" aria-hidden="true"></span>
+              <span><strong>Zonas ONA</strong><small>Coberturas registradas</small></span>
+              <i class="layer-swatch ona-swatch" aria-hidden="true"></i>
+            </label>
+            <label class="layer-toggle">
+              <input type="checkbox" data-layer="protected">
+              <span class="toggle-control" aria-hidden="true"></span>
+              <span><strong>Áreas protegidas</strong><small>Referencia ambiental</small></span>
+              <i class="layer-swatch protected-swatch" aria-hidden="true"></i>
+            </label>
+            <label class="layer-toggle">
+              <input type="checkbox" data-layer="districts">
+              <span class="toggle-control" aria-hidden="true"></span>
+              <span><strong>Distritos GAM</strong><small>Límites administrativos</small></span>
+              <i class="layer-swatch district-swatch" aria-hidden="true"></i>
+            </label>
+          </fieldset>
+        </section>
+
+        <section class="panel-section" aria-labelledby="legendTitle">
+          <div class="section-heading">
+            <div>
+              <p class="section-kicker">Simbología</p>
+              <h2 id="legendTitle">Índice de capacidad hídrica</h2>
+            </div>
+          </div>
+          <div class="legend-list">
+            <div><i class="legend-i"></i><span><strong>I</strong> Altamente deficitario</span></div>
+            <div><i class="legend-ii"></i><span><strong>II</strong> Crecimiento máximo alcanzado</span></div>
+            <div><i class="legend-iii"></i><span><strong>III</strong> Transición</span></div>
+            <div><i class="legend-iv"></i><span><strong>IV</strong> Margen disponible</span></div>
+          </div>
+        </section>
+
+        <footer class="sidebar-footer">
+          <p>Datos hídricos: <strong id="dataPeriod">—</strong></p>
+          <p>
+            Mapa informativo. La delimitación y clasificación no sustituyen un
+            criterio técnico formal ni una disponibilidad de servicio.
+          </p>
+        </footer>
+      </aside>
+
+      <section class="map-workspace" aria-labelledby="mapTitle">
+        <h2 class="sr-only" id="mapTitle">Mapa interactivo</h2>
+        <button
+          class="mobile-menu-button"
+          id="openSidebar"
+          type="button"
+          aria-label="Abrir panel de consulta"
+        >
+          <span aria-hidden="true">☰</span> Capas y consulta
+        </button>
+
+        <div class="map-toolbar" role="toolbar" aria-label="Herramientas del mapa">
+          <button type="button" id="pinTool" title="Colocar pin y consultar coordenadas WGS84">
+            <span aria-hidden="true">⌖</span><span>Coordenadas</span>
+          </button>
+          <button type="button" id="measureTool" title="Medir distancia">
+            <span aria-hidden="true">↔</span><span>Medir</span>
+          </button>
+          <button type="button" id="importTool" title="Importar KML o KMZ">
+            <span aria-hidden="true">⇧</span><span>Importar</span>
+          </button>
+          <input
+            id="kmlInput"
+            class="sr-only"
+            type="file"
+            accept=".kml,.kmz,application/vnd.google-earth.kml+xml,application/vnd.google-earth.kmz"
+          >
+          <button type="button" id="captureTool" title="Guardar captura del mapa en JPG">
+            <span aria-hidden="true">▣</span><span>JPG</span>
+          </button>
+          <button type="button" id="homeTool" title="Volver a la extensión completa">
+            <span aria-hidden="true">⌂</span><span>Extensión</span>
+          </button>
+        </div>
+
+        <div id="map" tabindex="0" aria-label="Mapa de sistemas de abastecimiento"></div>
+        <div class="loading-overlay" id="loadingOverlay" role="status" aria-live="polite">
+          <div class="water-loader" aria-hidden="true"></div>
+          <strong>Cargando visor público</strong>
+          <span>Preparando coberturas y herramientas…</span>
+        </div>
+
+        <div class="map-message" id="mapMessage" role="status" aria-live="polite"></div>
+
+        <div class="measurement-panel" id="measurementPanel" hidden>
+          <strong id="measurementValue">0 m</strong>
+          <span>Haga clic para agregar puntos. Pulse “Finalizar” o Esc.</span>
+          <button type="button" id="clearMeasurement">Limpiar</button>
+        </div>
+      </section>
+    </main>
+
+    <script src="vendor/leaflet/leaflet.js"></script>
+    <script src="vendor/geoman/leaflet-geoman.min.js"></script>
+    <script src="vendor/jszip/jszip.min.js"></script>
+    <script src="vendor/togeojson/togeojson.umd.js"></script>
+    <script src="vendor/screenshoter/leaflet-simple-map-screenshoter.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>
