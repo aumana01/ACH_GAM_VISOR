@@ -8,6 +8,7 @@ con Streamlit e incorpora una interfaz cartográfica Leaflet autocontenida.
 
 - identificación visual de sistemas deficitarios y superavitarios;
 - clasificación ICH I, II, III y IV con prioridad gráfica sobre las demás capas;
+- explicación ampliada de cada categoría ICH mediante ventanas activadas por clic;
 - consulta por nombre o código del sistema;
 - capas de municipalidades, ESPH, ASADAS, ONA, áreas protegidas y distritos;
 - criterios especiales con el tipo de restricción o facilidad y el código de
