@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Importa los SHP originales de Thiessen y criterios sin simplificar geometrías.
+"""Importa SHP públicos sin simplificar geometrías ni eliminar vértices.
 
 El conversor usa únicamente la biblioteca estándar de Python. Acepta un ZIP con
 un único Shapefile y publica solamente los atributos autorizados para el visor.
@@ -22,6 +22,7 @@ from typing import Callable
 
 ROOT = Path(__file__).resolve().parents[1]
 OUTPUT_DIR = ROOT / "map" / "data"
+GAM_BOUNDS = (-84.66, 9.48, -83.76, 10.19)
 MAX_ARCHIVE_BYTES = 200_000_000
 
 
@@ -251,13 +252,26 @@ def _inverse_crtm05(easting: float, northing: float) -> tuple[float, float]:
     return math.degrees(longitude), math.degrees(latitude)
 
 
+def _inverse_web_mercator(easting: float, northing: float) -> tuple[float, float]:
+    """Convierte EPSG:3857 a coordenadas geográficas WGS84."""
+
+    radius = 6_378_137.0
+    longitude = math.degrees(easting / radius)
+    latitude = math.degrees(2 * math.atan(math.exp(northing / radius)) - math.pi / 2)
+    return longitude, latitude
+
+
 def coordinate_transform(prj: str) -> Callable[[float, float], tuple[float, float]]:
     plain = normalized_text(prj).upper()
     if "CRTM05" in plain:
         return _inverse_crtm05
+    if "WEB_MERCATOR" in plain or "MERCATOR_AUXILIARY_SPHERE" in plain:
+        return _inverse_web_mercator
     if "WGS_1984" in plain and "PROJCS" not in plain:
         return lambda longitude, latitude: (longitude, latitude)
-    raise ValueError("El sistema de coordenadas no es WGS84 geográfico ni CRTM05.")
+    raise ValueError(
+        "El sistema de coordenadas no es WGS84 geográfico, CRTM05 ni Web Mercator."
+    )
 
 
 def _signed_area(ring: list[list[float]]) -> float:
@@ -336,7 +350,12 @@ def read_shp(
             struct.unpack_from("<2d", body, point_offset + index * 16)
             for index in range(point_count)
         ]
-        points = [list(transform(x, y)) for x, y in source_points]
+        # Ocho decimales en WGS84 conservan precisión milimétrica aproximada y
+        # evitan almacenar ruido numérico propio de la reproyección.
+        points = [
+            [round(longitude, 8), round(latitude, 8)]
+            for longitude, latitude in (transform(x, y) for x, y in source_points)
+        ]
         rings = [
             points[start : parts[index + 1] if index + 1 < part_count else point_count]
             for index, start in enumerate(parts)
@@ -375,6 +394,37 @@ def thiessen_properties(row: dict[str, str]) -> dict[str, str]:
     }
 
 
+def municipal_properties(row: dict[str, str]) -> dict[str, str]:
+    return {
+        "operador": _value(row, "operador") or "Acueducto municipal",
+        "sistema": _value(row, "sistema") or "Sin nombre",
+    }
+
+
+def ona_properties(row: dict[str, str]) -> dict[str, str]:
+    return {
+        "operador": _value(row, "operador") or "Organización de usuarios de agua",
+        "sistema": _value(row, "sistema") or "Sin nombre",
+    }
+
+
+def intersects_gam(geometry: dict[str, object]) -> bool:
+    coordinates = list(_walk_coordinates(geometry.get("coordinates")))
+    if not coordinates:
+        return False
+    minimum_x = min(point[0] for point in coordinates)
+    minimum_y = min(point[1] for point in coordinates)
+    maximum_x = max(point[0] for point in coordinates)
+    maximum_y = max(point[1] for point in coordinates)
+    west, south, east, north = GAM_BOUNDS
+    return not (
+        maximum_x < west
+        or minimum_x > east
+        or maximum_y < south
+        or minimum_y > north
+    )
+
+
 def import_layer(path: Path, layer_name: str) -> tuple[dict[str, object], dict[str, object]]:
     bundle = read_bundle(path)
     rows = read_dbf(bundle.dbf, _dbf_encoding(bundle.cpg))
@@ -383,16 +433,26 @@ def import_layer(path: Path, layer_name: str) -> tuple[dict[str, object], dict[s
         raise ValueError(
             f"{bundle.source_name}: DBF y SHP tienen distinta cantidad de registros."
         )
-    mapper = criteria_properties if layer_name == "criteria" else thiessen_properties
-    features = [
-        {
-            "type": "Feature",
-            "geometry": geometry,
-            "properties": mapper(row),
-        }
-        for row, geometry in zip(rows, geometries)
-        if row is not None and geometry is not None
-    ]
+    mappers = {
+        "criteria": criteria_properties,
+        "thiessen": thiessen_properties,
+        "municipal": municipal_properties,
+        "ona": ona_properties,
+    }
+    mapper = mappers[layer_name]
+    features = []
+    for row, geometry in zip(rows, geometries):
+        if row is None or geometry is None:
+            continue
+        if layer_name in {"municipal", "ona"} and not intersects_gam(geometry):
+            continue
+        features.append(
+            {
+                "type": "Feature",
+                "geometry": geometry,
+                "properties": mapper(row),
+            }
+        )
     vertex_count = sum(
         1
         for feature in features
@@ -440,6 +500,10 @@ def update_metadata(output_dir: Path, summaries: dict[str, dict[str, object]]) -
         feature_counts["criterios-especiales"] = summaries["criteria"]["publishedFeatures"]
     if "thiessen" in summaries:
         feature_counts["cobertura-thiessen-asadas"] = summaries["thiessen"]["publishedFeatures"]
+    if "municipal" in summaries:
+        feature_counts["municipal"] = summaries["municipal"]["publishedFeatures"]
+    if "ona" in summaries:
+        feature_counts["ona"] = summaries["ona"]["publishedFeatures"]
     metadata["shapefileLayersUpdatedAt"] = datetime.now(timezone.utc).isoformat()
     metadata_path.write_text(
         json.dumps(metadata, ensure_ascii=False, separators=(",", ":")) + "\n",
@@ -453,10 +517,12 @@ def main() -> None:
     )
     parser.add_argument("--thiessen", type=Path, help="ZIP o SHP de cobertura Thiessen")
     parser.add_argument("--criteria", type=Path, help="ZIP o SHP de criterios especiales")
+    parser.add_argument("--municipal", type=Path, help="ZIP o SHP de acueductos municipales")
+    parser.add_argument("--ona", type=Path, help="ZIP o SHP de coberturas ONA/SUA")
     parser.add_argument("--output-dir", type=Path, default=OUTPUT_DIR)
     args = parser.parse_args()
-    if not args.thiessen and not args.criteria:
-        parser.error("Indique --thiessen, --criteria o ambas opciones.")
+    if not any((args.thiessen, args.criteria, args.municipal, args.ona)):
+        parser.error("Indique al menos una capa SHP para importar.")
 
     args.output_dir.mkdir(parents=True, exist_ok=True)
     summaries: dict[str, dict[str, object]] = {}
@@ -468,6 +534,14 @@ def main() -> None:
         collection, summary = import_layer(args.criteria, "criteria")
         write_collection(args.output_dir / "criterios-especiales.geojson", collection)
         summaries["criteria"] = summary
+    if args.municipal:
+        collection, summary = import_layer(args.municipal, "municipal")
+        write_collection(args.output_dir / "municipalidades.geojson", collection)
+        summaries["municipal"] = summary
+    if args.ona:
+        collection, summary = import_layer(args.ona, "ona")
+        write_collection(args.output_dir / "onas.geojson", collection)
+        summaries["ona"] = summary
     update_metadata(args.output_dir, summaries)
     print(json.dumps(summaries, ensure_ascii=False, indent=2))
 

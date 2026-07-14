@@ -78,6 +78,7 @@
 
   const DEFAULT_BOUNDS = L.latLngBounds([9.646, -84.505], [10.025, -83.925]);
   const layerStore = {};
+  const layerFactories = {};
   const importGroup = L.featureGroup();
   const measurementGroup = L.featureGroup();
   let systemsData = null;
@@ -503,7 +504,7 @@
   }
 
   function buildOptionalLayers(data) {
-    layerStore.municipal = polygonLayer(
+    layerFactories.municipal = () => polygonLayer(
       data.municipal,
       { color: "#286fbe", weight: 1.45, fillColor: "#5997d4", fillOpacity: 0.15 },
       (p) => simplePopup(p.sistema, "Cobertura municipal", [["Operador", p.operador]]),
@@ -580,7 +581,7 @@
       });
     });
 
-    layerStore.ona = polygonLayer(
+    layerFactories.ona = () => polygonLayer(
       data.ona,
       {
         color: "#c43c78",
@@ -589,7 +590,10 @@
         fillColor: "#e888ae",
         fillOpacity: 0.12,
       },
-      (p) => simplePopup(p.sistema, "Zona ONA", [["Operador", p.operador]]),
+      (p) => simplePopup(p.sistema, "Cobertura ONA/SUA", [
+        ["Organización", p.operador],
+        ["Tipo", "Organización de usuarios de agua"],
+      ]),
       "restrictions",
     );
 
@@ -997,11 +1001,17 @@
 
     document.querySelectorAll("input[data-layer]").forEach((input) => {
       input.addEventListener("change", () => {
-        const layer = layerStore[input.dataset.layer];
+        const layerName = input.dataset.layer;
+        let layer = layerStore[layerName];
+        if (!layer && input.checked && layerFactories[layerName]) {
+          showMessage("Preparando la cobertura detallada…");
+          layer = layerFactories[layerName]();
+          layerStore[layerName] = layer;
+        }
         if (!layer) return;
         if (input.checked) layer.addTo(map);
         else map.removeLayer(layer);
-        if (map.hasLayer(layerStore.criteria)) {
+        if (layerStore.criteria && map.hasLayer(layerStore.criteria)) {
           layerStore.criteria.bringToFront();
         } else {
           systemsLayer?.bringToFront();

@@ -188,6 +188,9 @@ required_map_tokens = (
     "popup-category-info",
     "metadataLabels",
     "if (target) target.textContent = value",
+    "layerFactories.municipal",
+    "layerFactories.ona",
+    "Organización de usuarios de agua",
 )
 for token in required_map_tokens:
     if token not in map_source:

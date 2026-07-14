@@ -10,7 +10,8 @@ con Streamlit e incorpora una interfaz cartográfica Leaflet autocontenida.
 - clasificación ICH I, II, III y IV con prioridad gráfica sobre las demás capas;
 - explicación ampliada de cada categoría ICH mediante ventanas activadas por clic;
 - consulta por nombre o código del sistema;
-- capas de municipalidades, ESPH, ASADAS, ONA, áreas protegidas y distritos;
+- capas de municipalidades, ESPH, ASADAS, organizaciones de usuarios de agua
+  (ONA/SUA), áreas protegidas y distritos;
 - criterios especiales con el tipo de restricción o facilidad y el código de
   abastecimiento asociado;
 - coberturas someras/estimadas de ASADAS mediante polígonos Thiessen;
@@ -66,16 +67,19 @@ python scripts/check_public_data.py
 
 ### Actualización directa desde SHP
 
-Para actualizar únicamente Cobertura Thiessen o Criterios especiales, use el
+Para actualizar Cobertura Thiessen, Criterios especiales, Acueductos
+Municipales u ONA/SUA, use el
 ZIP original del Shapefile (`.shp`, `.shx`, `.dbf`, `.prj` y `.cpg`). El
 importador conserva todos los polígonos, anillos y vértices; no simplifica ni
-reemplaza la geometría por otra capa. También reproyecta CRTM05 a WGS84 cuando
-corresponde y elimina los atributos que no deben publicarse.
+reemplaza la geometría por otra capa. También reproyecta CRTM05 y Web Mercator
+a WGS84 cuando corresponde y elimina los atributos que no deben publicarse.
 
 ```bash
 python scripts/import_shapefile_layers.py \
   --thiessen "/ruta/Cobertura_Thiessen_ASADAS_UTAPS.zip" \
-  --criteria "/ruta/Criterios Especiales CCH GAM.zip"
+  --criteria "/ruta/Criterios Especiales CCH GAM.zip" \
+  --municipal "/ruta/Acueductos_Municipales_.zip" \
+  --ona "/ruta/Cobertura_ONAs_BD.zip"
 python scripts/check_public_data.py
 ```
 
@@ -91,6 +95,12 @@ python scripts/check_public_data.py
 La simbología se determina automáticamente con `cond_espec`: Artículo 43 se
 muestra como facilidad azul hachurada y las restricciones en rojo/terracota
 hachurado. El popup se abre únicamente al hacer clic en la geometría.
+
+ONA/SUA identifica organizaciones o comités de usuarios que gestionan sistemas
+comunitarios de abastecimiento y que se muestran separadamente de AyA, las
+municipalidades, ESPH y las ASADAS. Para las capas municipal y ONA/SUA, el
+importador conserva las geometrías que intersectan la extensión GAM sin
+recortarlas ni simplificarlas.
 
 Para regenerar todos los archivos desde las fuentes originales:
 
