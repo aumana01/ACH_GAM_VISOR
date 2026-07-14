@@ -9,6 +9,60 @@
     unknown: "#8b98a5",
   };
 
+  const CATEGORY_INFO = {
+    I: {
+      title: "Acueducto con déficit hídrico",
+      range: "Balance hídrico inferior a -20 %",
+      summary: "Opera con acciones permanentes y estrictas para el control hídrico del sistema.",
+      actions: [
+        "Posibles episodios de desabastecimiento o servicio discontinuo.",
+        "Abastecimiento de emergencia mediante camiones cisterna.",
+        "Racionamientos y bajas presiones de servicio.",
+        "Mayor frecuencia de reclamos por faltante.",
+        "Aprobación limitada de nuevos servicios conforme al concepto de desarrollo máximo.",
+      ],
+      note: "La condición requiere evaluación técnica estricta para cualquier disponibilidad o crecimiento de demanda.",
+    },
+    II: {
+      title: "Acueducto en crecimiento máximo",
+      range: "Balance hídrico entre -20 % y -5 %",
+      summary: "Opera con acciones frecuentes y puntuales para controlar la demanda y sostener el servicio.",
+      actions: [
+        "Posible servicio intermitente o racionamiento puntual.",
+        "Sectorización de la distribución.",
+        "Aprovechamiento de fuentes a máxima capacidad.",
+        "Cierre de tanques para control de la demanda.",
+        "Posibles presiones inferiores a 10 mca y regulación de válvulas.",
+        "Aprobación limitada de nuevos servicios conforme al concepto de desarrollo máximo.",
+      ],
+      note: "El sistema alcanzó su crecimiento máximo y requiere control operativo frecuente.",
+    },
+    III: {
+      title: "Acueducto en transición",
+      range: "Balance hídrico entre -5 % y +10 %",
+      summary: "Mantiene condiciones generalmente aceptables, aunque puede presentar déficit parcial, localizado o estacional.",
+      actions: [
+        "Aprovechamiento de fuentes a máxima capacidad.",
+        "Regulación de válvulas.",
+        "Cierre de tanques ante interrupciones puntuales o condiciones críticas.",
+        "Evaluación restringida de nuevos servicios cuando exista déficit localizado.",
+      ],
+      note: "El margen reducido puede comprometer el servicio en época seca o ante variaciones de producción y demanda.",
+    },
+    IV: {
+      title: "Acueducto con capacidad hídrica",
+      range: "Superávit superior a +10 %",
+      summary: "Opera en condiciones adecuadas para la prestación del servicio y con control hídrico estable.",
+      actions: [
+        "Satisfacción general de continuidad, calidad y cantidad.",
+        "Interrupciones principalmente asociadas a reparaciones o emergencias.",
+        "Sin restricción hídrica general para tramitar disponibilidades.",
+        "Menor frecuencia de reclamos por faltante.",
+      ],
+      note: "La categoría IV no elimina restricciones particulares, ambientales, de infraestructura o normativas que deban evaluarse por separado.",
+    },
+  };
+
   const DATA_FILES = {
     metadata: "data/metadata.json",
     systems: "data/sistemas.geojson",
@@ -57,6 +111,13 @@
     sidebar: document.getElementById("sidebar"),
     openSidebar: document.getElementById("openSidebar"),
     closeSidebar: document.getElementById("closeSidebar"),
+    categoryDialog: document.getElementById("categoryInfoDialog"),
+    categoryCode: document.getElementById("categoryInfoCode"),
+    categoryTitle: document.getElementById("categoryInfoTitle"),
+    categoryRange: document.getElementById("categoryInfoRange"),
+    categorySummary: document.getElementById("categoryInfoSummary"),
+    categoryActions: document.getElementById("categoryInfoActions"),
+    categoryNote: document.getElementById("categoryInfoNote"),
   };
 
   const map = L.map("map", {
@@ -279,6 +340,34 @@
     return COLORS[ich] || COLORS.unknown;
   }
 
+  function openCategoryInfo(category) {
+    const info = CATEGORY_INFO[category];
+    if (!info || !elements.categoryDialog) return;
+    const dialogColors = {
+      I: "#b90000",
+      II: "#c85f00",
+      III: "#9a7200",
+      IV: "#007c3e",
+    };
+    elements.categoryDialog.style.setProperty(
+      "--category-color",
+      dialogColors[category] || "#075b9e",
+    );
+    elements.categoryCode.textContent = `ICH ${category}`;
+    elements.categoryTitle.textContent = info.title;
+    elements.categoryRange.textContent = info.range;
+    elements.categorySummary.textContent = info.summary;
+    elements.categoryActions.innerHTML = info.actions
+      .map((action) => `<li>${escapeHtml(action)}</li>`)
+      .join("");
+    elements.categoryNote.textContent = info.note;
+    if (typeof elements.categoryDialog.showModal === "function") {
+      elements.categoryDialog.showModal();
+    } else {
+      elements.categoryDialog.setAttribute("open", "");
+    }
+  }
+
   function systemPopup(properties) {
     const statusClass = properties.condicion === "Déficit" ? "deficit" : "surplus";
     return `
@@ -296,6 +385,11 @@
             <span>Clasificación ICH</span>
             <span>${escapeHtml(properties.ich)}</span>
           </div>
+          <button
+            type="button"
+            class="popup-category-info"
+            data-popup-ich="${escapeHtml(properties.ich)}"
+          >Conocer esta categoría hídrica</button>
         </div>
       </article>
     `;
@@ -893,6 +987,14 @@
   }
 
   function bindInterface() {
+    document.querySelectorAll("[data-ich-info]").forEach((button) => {
+      button.addEventListener("click", () => openCategoryInfo(button.dataset.ichInfo));
+    });
+
+    elements.categoryDialog?.addEventListener("click", (event) => {
+      if (event.target === elements.categoryDialog) elements.categoryDialog.close();
+    });
+
     document.querySelectorAll("input[data-layer]").forEach((input) => {
       input.addEventListener("change", () => {
         const layer = layerStore[input.dataset.layer];
@@ -969,9 +1071,17 @@
     });
 
     map.on("popupopen", (event) => {
-      const copyButton = event.popup.getElement()?.querySelector(".copy-coordinate");
-      if (!copyButton) return;
-      copyButton.addEventListener("click", async () => {
+      const popupElement = event.popup.getElement();
+      const categoryButton = popupElement?.querySelector(".popup-category-info");
+      const copyButton = popupElement?.querySelector(".copy-coordinate");
+
+      categoryButton?.addEventListener("click", () => {
+        const category = categoryButton.dataset.popupIch;
+        map.closePopup(event.popup);
+        openCategoryInfo(category);
+      });
+
+      copyButton?.addEventListener("click", async () => {
         try {
           await navigator.clipboard.writeText(copyButton.dataset.coordinate);
           copyButton.textContent = "Copiado";
