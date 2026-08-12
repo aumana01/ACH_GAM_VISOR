@@ -51,7 +51,7 @@ SCHEMAS = {
 }
 
 FORBIDDEN_KEY = re.compile(
-    r"correo|tel[eé]fono|globalid|objectid|created_|edited_|servicios|balance|fuente|producci[oó]n|demanda|anc|equivalencia",
+    r"correo|tel[eé]fono|globalid|objectid|created_|edited_|servicios|balance|fuente|producci[oó]n|demanda|(?:^|_)anc(?:_|$)|equivalencia",
     re.IGNORECASE,
 )
 FAILURES: list[str] = []
