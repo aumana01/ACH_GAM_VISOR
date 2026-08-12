@@ -16,8 +16,7 @@ Streamlit e incorpora una interfaz cartográfica Leaflet autocontenida.
 - popup público limitado a categoría hídrica, nombre, dotación estimada,
   consumo estimado por conexión y factor de ocupación;
 - capa nacional de 5.400 puntos ASADA con consulta del nombre del operador;
-- capas de municipalidades, ESPH, ASADAS, organizaciones de usuarios de agua
-  (ONA/SUA), áreas protegidas y distritos;
+- capas de municipalidades, ESPH, ASADAS, áreas protegidas y distritos;
 - criterios especiales con el tipo de restricción o facilidad y el código de
   abastecimiento asociado;
 - coberturas someras/estimadas de ASADAS mediante polígonos Thiessen;
@@ -61,7 +60,6 @@ atributos públicos permitidos.
 | `asadas.geojson.gz` | `codigo`, `nombre`, `territorio` |
 | `cobertura-thiessen-asadas.geojson.gz` | `codigo`, `referencia`, `provincia`, `canton`, `distrito`, `alcance`, `metodo`, `territorios` |
 | `criterios-especiales.geojson` | `codigo_sistema`, `nombre_sistema`, `codigo_abastecimiento`, `zona`, `zona_operativa`, `tipo`, `detalle` |
-| `onas.geojson` | `operador`, `sistema` |
 | `areas-protegidas.geojson` | `codigo`, `nombre`, `categoria` |
 | `distritos.geojson.gz` | `clave`, `codigo`, `provincia`, `canton`, `distrito` |
 
@@ -111,19 +109,18 @@ restablece la cobertura nacional.
 
 ### Actualización directa desde SHP
 
-Para actualizar Cobertura Thiessen, Criterios especiales, Acueductos
-Municipales u ONA/SUA, use el
-ZIP original del Shapefile (`.shp`, `.shx`, `.dbf`, `.prj` y `.cpg`). El
-importador conserva todos los polígonos, anillos y vértices; no simplifica ni
-reemplaza la geometría por otra capa. También reproyecta CRTM05 y Web Mercator
-a WGS84 cuando corresponde y elimina los atributos que no deben publicarse.
+Para actualizar Cobertura Thiessen, Criterios especiales o Acueductos
+Municipales, use el ZIP original del Shapefile (`.shp`, `.shx`, `.dbf`, `.prj`
+y `.cpg`). El importador conserva todos los polígonos, anillos y vértices; no
+simplifica ni reemplaza la geometría por otra capa. También reproyecta CRTM05 y
+Web Mercator a WGS84 cuando corresponde y elimina los atributos que no deben
+publicarse.
 
 ```bash
 python scripts/import_shapefile_layers.py \
   --thiessen "/ruta/Cobertura_Thiessen_ASADAS_UTAPS.zip" \
   --criteria "/ruta/Criterios Especiales CCH GAM.zip" \
-  --municipal "/ruta/Acueductos_Municipales_.zip" \
-  --ona "/ruta/Cobertura_ONAs_BD.zip"
+  --municipal "/ruta/Acueductos_Municipales_.zip"
 python scripts/check_public_data.py
 ```
 
@@ -140,16 +137,10 @@ La simbología se determina automáticamente con `cond_espec`: Artículo 43 se
 muestra como facilidad azul hachurada y las restricciones en rojo/terracota
 hachurado. El popup se abre únicamente al hacer clic en la geometría.
 
-ONA/SUA identifica organizaciones o comités de usuarios que gestionan sistemas
-comunitarios de abastecimiento y que se muestran separadamente de AyA, las
-municipalidades, ESPH y las ASADAS. Para las capas municipal y ONA/SUA, el
-importador conserva las geometrías que intersectan la extensión GAM sin
-recortarlas ni simplificarlas.
-
 Para regenerar las capas complementarias desde las fuentes originales:
 
 1. Cree una carpeta local `source_private/` (está excluida de Git).
-2. Copie allí los diez archivos con los nombres indicados en
+2. Copie allí los archivos con los nombres indicados en
    `scripts/update_public_data.py`.
 3. Instale las dependencias de actualización y ejecute el proceso.
 
