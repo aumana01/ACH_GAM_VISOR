@@ -23,11 +23,12 @@ SCHEMAS = {
         "dotacion_lpd",
         "consumo_conexion_m3_mes",
         "factor_ocupacion",
+        "territorios",
     },
     "municipalidades.geojson": {"operador", "sistema"},
     "esph.geojson": {"operador", "sistema"},
-    "asadas.geojson": {"codigo", "operador"},
-    "cobertura-thiessen-asadas.geojson": {
+    "asadas.geojson.gz": {"codigo", "nombre", "territorio"},
+    "cobertura-thiessen-asadas.geojson.gz": {
         "codigo",
         "referencia",
         "provincia",
@@ -35,6 +36,7 @@ SCHEMAS = {
         "distrito",
         "alcance",
         "metodo",
+        "territorios",
     },
     "criterios-especiales.geojson": {
         "codigo_sistema",
@@ -47,7 +49,13 @@ SCHEMAS = {
     },
     "onas.geojson": {"operador", "sistema"},
     "areas-protegidas.geojson": {"codigo", "nombre", "categoria"},
-    "distritos.geojson": {"provincia", "canton", "distrito"},
+    "distritos.geojson.gz": {
+        "clave",
+        "codigo",
+        "provincia",
+        "canton",
+        "distrito",
+    },
 }
 
 FORBIDDEN_KEY = re.compile(
@@ -77,7 +85,7 @@ def visit_coordinates(value: Any, filename: str) -> None:
         and isinstance(value[1], (int, float))
     ):
         longitude, latitude = value[:2]
-        if not (-86.5 <= longitude <= -82 and 8 <= latitude <= 11.5):
+        if not (-87.2 <= longitude <= -82 and 5.4 <= latitude <= 11.5):
             FAILURES.append(
                 f"{filename}: coordenada fuera de Costa Rica ({longitude}, {latitude})."
             )
@@ -93,8 +101,9 @@ for filename, allowed_keys in SCHEMAS.items():
         FAILURES.append(f"{filename}: archivo faltante.")
         continue
     size_limit = 30_000_000 if filename in {
-        "cobertura-thiessen-asadas.geojson",
+        "cobertura-thiessen-asadas.geojson.gz",
         "sistemas.geojson.gz",
+        "distritos.geojson.gz",
     } else 15_000_000
     if path.stat().st_size > size_limit:
         FAILURES.append(
@@ -159,17 +168,47 @@ for feature in systems:
     if factor is not None and not isinstance(factor, (int, float)):
         FAILURES.append(f"{code or 'Sin código'}: factor_ocupacion inválido.")
 
-district_features = collections.get("distritos.geojson", {}).get("features", [])
+district_features = collections.get("distritos.geojson.gz", {}).get("features", [])
+district_keys: set[str] = set()
 for feature in district_features:
     properties = feature.get("properties") or {}
+    key = str(properties.get("clave") or "").strip()
+    if not key:
+        FAILURES.append("distritos.geojson.gz: falta la clave territorial.")
+    elif key in district_keys:
+        FAILURES.append(f"distritos.geojson.gz: clave duplicada {key}.")
+    district_keys.add(key)
     for field in ("provincia", "canton", "distrito"):
         value = str(properties.get(field) or "").strip()
         if not value:
-            FAILURES.append(f"distritos.geojson: falta el nombre de {field}.")
+            FAILURES.append(f"distritos.geojson.gz: falta el nombre de {field}.")
         elif value.isdigit():
             FAILURES.append(
-                f"distritos.geojson: {field} debe mostrar un nombre, no el código {value}."
+                f"distritos.geojson.gz: {field} debe mostrar un nombre, no el código {value}."
             )
+
+if len({f["properties"]["provincia"] for f in district_features}) != 7:
+    FAILURES.append("distritos.geojson.gz: la cobertura debe contener 7 provincias.")
+
+for feature in systems:
+    properties = feature.get("properties") or {}
+    territories = properties.get("territorios")
+    if not isinstance(territories, list) or not territories:
+        FAILURES.append(
+            f"{properties.get('codigo') or 'Sin código'}: falta relación territorial."
+        )
+    elif not set(territories).issubset(district_keys):
+        FAILURES.append(
+            f"{properties.get('codigo') or 'Sin código'}: contiene claves territoriales inválidas."
+        )
+
+asada_features = collections.get("asadas.geojson.gz", {}).get("features", [])
+for feature in asada_features:
+    properties = feature.get("properties") or {}
+    if not str(properties.get("nombre") or "").strip():
+        FAILURES.append("asadas.geojson.gz: hay un punto sin nombre de ASADA.")
+    if properties.get("territorio") not in district_keys:
+        FAILURES.append("asadas.geojson.gz: hay un punto sin relación territorial válida.")
 
 metadata = load_json(DATA_DIR / "metadata.json")
 regions = {item.get("region") for item in unique_systems.values()}
@@ -184,6 +223,23 @@ if (
 ):
     FAILURES.append("metadata.json no coincide con los sistemas publicados.")
 
+expected_feature_counts = {
+    "systems": len(systems),
+    "asadas": len(asada_features),
+    "cobertura-thiessen-asadas": len(
+        collections.get("cobertura-thiessen-asadas.geojson.gz", {}).get(
+            "features", []
+        )
+    ),
+    "districts": len(district_features),
+}
+published_feature_counts = metadata.get("featureCounts") or {}
+for layer_name, expected in expected_feature_counts.items():
+    if published_feature_counts.get(layer_name) != expected:
+        FAILURES.append(
+            f"metadata.json: conteo inválido para {layer_name}."
+        )
+
 app_source = (ROOT / "app.py").read_text(encoding="utf-8")
 required_app_tokens = (
     "from streamlit_autorefresh import st_autorefresh",
@@ -192,6 +248,8 @@ required_app_tokens = (
     "logo-aya-65.jpg",
     "Estado Hídrico de los Sistemas AyA · GAM y Periféricos",
     '"systems": "sistemas.geojson.gz"',
+    '"asadas": "asadas.geojson.gz"',
+    '"districts": "distritos.geojson.gz"',
     "window.ACH_GAM_DATA_GZIP",
     'height: 100dvh',
     'overflow: hidden !important',
@@ -221,7 +279,7 @@ required_map_tokens = (
     "coordinate-highlight",
     "startMeasurement",
     "criteriaPopup",
-    "data.thiessen",
+    "thiessenData",
     "criteria-dominant",
     "criteria-facility-pattern",
     "criteria-restriction-pattern",
@@ -235,11 +293,16 @@ required_map_tokens = (
     "regionFilter",
     "systemFilter",
     "categoryFilter",
+    "provinceFilter",
+    "cantonFilter",
+    "districtFilter",
+    "matchesSelectedTerritory",
+    "refreshTerritorialLayers",
     "decompressGzipJson",
     "layerFactories.municipal",
     "layerFactories.ona",
     "Organización de usuarios de agua",
-    "Ubicación administrativa",
+    "Distrito de Costa Rica",
 )
 for token in required_map_tokens:
     if token not in map_source:
@@ -274,7 +337,7 @@ for feature in criteria_features:
         )
 
 thiessen_features = collections.get(
-    "cobertura-thiessen-asadas.geojson", {}
+    "cobertura-thiessen-asadas.geojson.gz", {}
 ).get("features", [])
 for feature in thiessen_features:
     properties = feature.get("properties") or {}
@@ -285,6 +348,15 @@ for feature in thiessen_features:
     if properties.get("metodo") != "Polígono de Thiessen":
         FAILURES.append(
             "cobertura-thiessen-asadas.geojson: método público inválido."
+        )
+    territories = properties.get("territorios")
+    if not isinstance(territories, list) or not territories:
+        FAILURES.append(
+            "cobertura-thiessen-asadas.geojson.gz: falta relación territorial."
+        )
+    elif not set(territories).issubset(district_keys):
+        FAILURES.append(
+            "cobertura-thiessen-asadas.geojson.gz: contiene claves territoriales inválidas."
         )
 
 if FAILURES:
@@ -298,6 +370,8 @@ print(
             "systems": len(unique_systems),
             "regions": len(regions),
             "categories": category_counts,
+            "asadaPoints": len(asada_features),
+            "districts": len(district_features),
             "publicLayers": len(SCHEMAS),
         },
         ensure_ascii=False,

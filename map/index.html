@@ -110,6 +110,30 @@
               <p>Filtrar cobertura</p>
               <button class="text-button" id="clearFilters" type="button">Limpiar</button>
             </div>
+            <div class="territorial-filter-block">
+              <div class="territorial-filter-heading">
+                <strong>Ubicación administrativa</strong>
+                <small>Filtro geoespacial encadenado</small>
+              </div>
+              <label>
+                <span>Provincia</span>
+                <select id="provinceFilter">
+                  <option value="Todas">Todo el país</option>
+                </select>
+              </label>
+              <label>
+                <span>Cantón</span>
+                <select id="cantonFilter" disabled>
+                  <option value="Todos">Todos los cantones</option>
+                </select>
+              </label>
+              <label>
+                <span>Distrito</span>
+                <select id="districtFilter" disabled>
+                  <option value="Todos">Todos los distritos</option>
+                </select>
+              </label>
+            </div>
             <label>
               <span>Región operativa</span>
               <select id="regionFilter">
@@ -175,7 +199,7 @@
             <label class="layer-toggle">
               <input type="checkbox" data-layer="asadas">
               <span class="toggle-control" aria-hidden="true"></span>
-              <span><strong>ASADAS</strong><small>Ubicación de operadores</small></span>
+              <span><strong>ASADAS</strong><small>Puntos nacionales · nombre del operador</small></span>
               <i class="layer-swatch asada-swatch" aria-hidden="true"></i>
             </label>
             <label class="layer-toggle">
@@ -212,7 +236,7 @@
             <label class="layer-toggle">
               <input type="checkbox" data-layer="districts">
               <span class="toggle-control" aria-hidden="true"></span>
-              <span><strong>Distritos GAM</strong><small>Límites administrativos</small></span>
+              <span><strong>Distritos de Costa Rica</strong><small>Provincia, cantón y distrito</small></span>
               <i class="layer-swatch district-swatch" aria-hidden="true"></i>
             </label>
           </fieldset>

@@ -22,12 +22,12 @@ DATA_FILES = {
     "systems": "sistemas.geojson.gz",
     "municipal": "municipalidades.geojson",
     "esph": "esph.geojson",
-    "asadas": "asadas.geojson",
-    "thiessen": "cobertura-thiessen-asadas.geojson",
+    "asadas": "asadas.geojson.gz",
+    "thiessen": "cobertura-thiessen-asadas.geojson.gz",
     "criteria": "criterios-especiales.geojson",
     "ona": "onas.geojson",
     "protected": "areas-protegidas.geojson",
-    "districts": "distritos.geojson",
+    "districts": "distritos.geojson.gz",
 }
 
 STYLE_FILES = (

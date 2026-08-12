@@ -340,6 +340,39 @@ button {
   font-weight: 800;
 }
 
+.territorial-filter-block {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0.62rem;
+  border: 1px solid #cfe0ed;
+  border-radius: 9px;
+  background: #f7fbfe;
+}
+
+.territorial-filter-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.6rem;
+}
+
+.territorial-filter-heading strong {
+  color: #294b68;
+  font-size: 0.68rem;
+}
+
+.territorial-filter-heading small {
+  color: #708398;
+  font-size: 0.56rem;
+  text-align: right;
+}
+
+.system-filters select:disabled {
+  color: #8595a4;
+  cursor: not-allowed;
+  background: #edf2f6;
+}
+
 .system-filters label > span {
   display: block;
   margin-bottom: 0.22rem;

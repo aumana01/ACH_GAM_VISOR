@@ -68,24 +68,32 @@
     systems: "data/sistemas.geojson.gz",
     municipal: "data/municipalidades.geojson",
     esph: "data/esph.geojson",
-    asadas: "data/asadas.geojson",
-    thiessen: "data/cobertura-thiessen-asadas.geojson",
+    asadas: "data/asadas.geojson.gz",
+    thiessen: "data/cobertura-thiessen-asadas.geojson.gz",
     criteria: "data/criterios-especiales.geojson",
     ona: "data/onas.geojson",
     protected: "data/areas-protegidas.geojson",
-    districts: "data/distritos.geojson",
+    districts: "data/distritos.geojson.gz",
   };
 
   const DEFAULT_BOUNDS = L.latLngBounds([8.4, -85.9], [11.3, -82.7]);
   const layerStore = {};
   const layerFactories = {};
+  const territoryLookup = new Map();
+  const territoryBounds = new Map();
   const importGroup = L.featureGroup();
   const measurementGroup = L.featureGroup();
   let systemsData = null;
+  let asadasData = null;
+  let thiessenData = null;
+  let districtsData = null;
   let systemsLayer = null;
   let selectedRegion = "Todas";
   let selectedSystem = "Todos";
   let selectedCategory = "Todas";
+  let selectedProvince = "Todas";
+  let selectedCanton = "Todos";
+  let selectedDistrict = "Todos";
   let messageTimer = null;
   let pinMode = false;
   let coordinatePin = null;
@@ -102,6 +110,9 @@
     regionFilter: document.getElementById("regionFilter"),
     systemFilter: document.getElementById("systemFilter"),
     categoryFilter: document.getElementById("categoryFilter"),
+    provinceFilter: document.getElementById("provinceFilter"),
+    cantonFilter: document.getElementById("cantonFilter"),
+    districtFilter: document.getElementById("districtFilter"),
     clearFilters: document.getElementById("clearFilters"),
     visibleCount: document.getElementById("visibleCount"),
     coordinateForm: document.getElementById("coordinateSearchForm"),
@@ -193,7 +204,7 @@
   captureLegend.onAdd = () => {
     const node = L.DomUtil.create("div", "map-capture-legend");
     node.innerHTML = `
-      <strong>Capacidad hídrica GAM</strong>
+      <strong>Estado hídrico de sistemas AyA</strong>
       <span><i style="background:${COLORS.I}"></i>I · Altamente deficitario</span>
       <span><i style="background:${COLORS.II}"></i>II · Crecimiento máximo</span>
       <span><i style="background:${COLORS.III}"></i>III · Transición</span>
@@ -244,7 +255,7 @@
       ".leaflet-control-attribution",
     ],
     mimeType: "image/jpeg",
-    caption: "ACH GAM VISOR · Capacidad hídrica GAM",
+    caption: "ACH GAM VISOR · Sistemas AyA GAM y periféricos",
     captionColor: "#002b5c",
     captionBgColor: "#ffffff",
     captionFontSize: 16,
@@ -446,6 +457,98 @@
     `;
   }
 
+  function territoryKeys(properties) {
+    if (Array.isArray(properties?.territorios)) return properties.territorios;
+    return properties?.territorio ? [properties.territorio] : [];
+  }
+
+  function territoryFilterActive() {
+    return selectedProvince !== "Todas";
+  }
+
+  function matchesSelectedTerritory(properties) {
+    if (!territoryFilterActive()) return true;
+    return territoryKeys(properties).some((key) => {
+      const territory = territoryLookup.get(key);
+      if (!territory || territory.provincia !== selectedProvince) return false;
+      if (selectedCanton !== "Todos" && territory.canton !== selectedCanton) return false;
+      return selectedDistrict === "Todos" || territory.clave === selectedDistrict;
+    });
+  }
+
+  function districtRecords() {
+    return districtsData.features
+      .map((feature) => feature.properties)
+      .sort((first, second) => (
+        `${first.provincia}|${first.canton}|${first.distrito}`
+          .localeCompare(`${second.provincia}|${second.canton}|${second.distrito}`, "es")
+      ));
+  }
+
+  function selectedDistrictFeatures() {
+    if (!territoryFilterActive()) return districtsData.features;
+    return districtsData.features.filter((feature) => {
+      const properties = feature.properties;
+      return properties.provincia === selectedProvince
+        && (selectedCanton === "Todos" || properties.canton === selectedCanton)
+        && (selectedDistrict === "Todos" || properties.clave === selectedDistrict);
+    });
+  }
+
+  function extendBoundsFromCoordinates(bounds, coordinates) {
+    if (!Array.isArray(coordinates)) return;
+    if (
+      coordinates.length >= 2
+      && Number.isFinite(coordinates[0])
+      && Number.isFinite(coordinates[1])
+    ) {
+      bounds.extend([coordinates[1], coordinates[0]]);
+      return;
+    }
+    coordinates.forEach((child) => extendBoundsFromCoordinates(bounds, child));
+  }
+
+  function indexDistricts() {
+    territoryLookup.clear();
+    territoryBounds.clear();
+    districtsData.features.forEach((feature) => {
+      const properties = feature.properties;
+      territoryLookup.set(properties.clave, properties);
+      const bounds = L.latLngBounds();
+      extendBoundsFromCoordinates(bounds, feature.geometry.coordinates);
+      territoryBounds.set(properties.clave, bounds);
+    });
+  }
+
+  function selectedAdministrativeBounds() {
+    const bounds = L.latLngBounds();
+    selectedDistrictFeatures().forEach((feature) => {
+      const featureBounds = territoryBounds.get(feature.properties.clave);
+      if (featureBounds?.isValid()) bounds.extend(featureBounds);
+    });
+    return bounds;
+  }
+
+  function selectedDataBounds(systemBounds) {
+    const bounds = L.latLngBounds();
+    if (systemBounds?.isValid()) bounds.extend(systemBounds);
+    asadasData.features.forEach((feature) => {
+      if (!matchesSelectedTerritory(feature.properties)) return;
+      const [longitude, latitude] = feature.geometry.coordinates;
+      bounds.extend([latitude, longitude]);
+    });
+    return bounds;
+  }
+
+  function filteredCollection(data) {
+    return {
+      type: "FeatureCollection",
+      features: data.features.filter((feature) => (
+        matchesSelectedTerritory(feature.properties)
+      )),
+    };
+  }
+
   function criteriaPopup(properties, records) {
     const types = [...new Set(records.map((item) => item.tipo).filter(Boolean))];
     return `
@@ -487,7 +590,8 @@
       const properties = item.properties;
       return (selectedRegion === "Todas" || properties.region === selectedRegion)
         && (selectedSystem === "Todos" || properties.codigo === selectedSystem)
-        && (selectedCategory === "Todas" || properties.ich === selectedCategory);
+        && (selectedCategory === "Todas" || properties.ich === selectedCategory)
+        && matchesSelectedTerritory(properties);
     });
 
     systemsLayer = L.geoJSON(
@@ -552,29 +656,31 @@
       "operators",
     );
 
-    const asadaIcon = L.divIcon({
-      className: "asada-marker",
-      html: "",
-      iconSize: [17, 17],
-      iconAnchor: [8, 8],
-    });
-    layerStore.asadas = L.geoJSON(data.asadas, {
+    layerFactories.asadas = () => L.geoJSON(filteredCollection(asadasData), {
       pane: "operatorPoints",
-      pointToLayer: (_item, latlng) => L.marker(latlng, {
-        icon: asadaIcon,
+      pointToLayer: (_item, latlng) => L.circleMarker(latlng, {
         pane: "operatorPoints",
+        radius: 4.5,
+        color: "#ffffff",
+        weight: 1.4,
+        fillColor: "#028f9f",
+        fillOpacity: 0.92,
       }),
       onEachFeature: (item, layer) => {
-        layer.bindPopup(simplePopup(
-          item.properties.operador,
-          "ASADA",
-          item.properties.codigo ? [["Código", item.properties.codigo]] : [],
-        ));
+        layer.bindPopup(simplePopup(item.properties.nombre, "ASADA"), {
+          closeButton: true,
+          maxWidth: 320,
+        });
+        layer.bindTooltip(escapeHtml(item.properties.nombre), {
+          sticky: true,
+          direction: "top",
+          opacity: 0.92,
+        });
       },
     });
 
-    layerStore.thiessen = polygonLayer(
-      data.thiessen,
+    layerFactories.thiessen = () => polygonLayer(
+      filteredCollection(thiessenData),
       {
         color: "#008b98",
         weight: 1.2,
@@ -647,8 +753,8 @@
       "restrictions",
     );
 
-    layerStore.districts = polygonLayer(
-      data.districts,
+    layerFactories.districts = () => polygonLayer(
+      { type: "FeatureCollection", features: selectedDistrictFeatures() },
       {
         color: "#66798a",
         weight: 1,
@@ -656,13 +762,45 @@
         fillColor: "#ffffff",
         fillOpacity: 0,
       },
-      (p) => simplePopup("Ubicación administrativa", "Distrito GAM", [
+      (p) => simplePopup(p.distrito, "Distrito de Costa Rica", [
         ["Provincia", p.provincia],
         ["Cantón", p.canton],
         ["Distrito", p.distrito],
       ]),
       "reference",
     );
+  }
+
+  function rebuildTerritorialLayer(layerName) {
+    const existing = layerStore[layerName];
+    const toggle = document.querySelector(`input[data-layer="${layerName}"]`);
+    const shouldDisplay = Boolean(toggle?.checked);
+    if (existing && map.hasLayer(existing)) map.removeLayer(existing);
+    if (!existing && !shouldDisplay) return;
+    const replacement = layerFactories[layerName]?.();
+    if (!replacement) return;
+    layerStore[layerName] = replacement;
+    if (shouldDisplay) replacement.addTo(map);
+  }
+
+  function refreshTerritorialLayers() {
+    ["asadas", "thiessen", "districts"].forEach(rebuildTerritorialLayer);
+    if (layerStore.criteria && map.hasLayer(layerStore.criteria)) {
+      layerStore.criteria.bringToFront();
+    } else {
+      systemsLayer?.bringToFront();
+    }
+  }
+
+  function visibleTerritorialCounts() {
+    return {
+      asadas: asadasData.features.filter((feature) => (
+        matchesSelectedTerritory(feature.properties)
+      )).length,
+      thiessen: thiessenData.features.filter((feature) => (
+        matchesSelectedTerritory(feature.properties)
+      )).length,
+    };
   }
 
   function uniqueSystems() {
@@ -684,7 +822,64 @@
     return uniqueSystems().filter((item) => (
       (selectedRegion === "Todas" || item.region === selectedRegion)
       && (selectedCategory === "Todas" || item.ich === selectedCategory)
+      && matchesSelectedTerritory(item)
     ));
+  }
+
+  function updateTerritorialFilterOptions() {
+    const records = districtRecords();
+    const provinces = [...new Set(records.map((item) => item.provincia))]
+      .sort((first, second) => first.localeCompare(second, "es"));
+    if (selectedProvince !== "Todas" && !provinces.includes(selectedProvince)) {
+      selectedProvince = "Todas";
+      selectedCanton = "Todos";
+      selectedDistrict = "Todos";
+    }
+    elements.provinceFilter.innerHTML = [
+      '<option value="Todas">Todo el país</option>',
+      ...provinces.map((province) => (
+        `<option value="${escapeHtml(province)}">${escapeHtml(province)}</option>`
+      )),
+    ].join("");
+    elements.provinceFilter.value = selectedProvince;
+
+    const cantons = selectedProvince === "Todas"
+      ? []
+      : [...new Set(
+        records
+          .filter((item) => item.provincia === selectedProvince)
+          .map((item) => item.canton),
+      )].sort((first, second) => first.localeCompare(second, "es"));
+    if (selectedCanton !== "Todos" && !cantons.includes(selectedCanton)) {
+      selectedCanton = "Todos";
+      selectedDistrict = "Todos";
+    }
+    elements.cantonFilter.innerHTML = [
+      '<option value="Todos">Todos los cantones</option>',
+      ...cantons.map((canton) => (
+        `<option value="${escapeHtml(canton)}">${escapeHtml(canton)}</option>`
+      )),
+    ].join("");
+    elements.cantonFilter.value = selectedCanton;
+    elements.cantonFilter.disabled = selectedProvince === "Todas";
+
+    const districts = selectedCanton === "Todos"
+      ? []
+      : records.filter((item) => (
+        item.provincia === selectedProvince && item.canton === selectedCanton
+      ));
+    const districtKeys = new Set(districts.map((item) => item.clave));
+    if (selectedDistrict !== "Todos" && !districtKeys.has(selectedDistrict)) {
+      selectedDistrict = "Todos";
+    }
+    elements.districtFilter.innerHTML = [
+      '<option value="Todos">Todos los distritos</option>',
+      ...districts.map((district) => (
+        `<option value="${escapeHtml(district.clave)}">${escapeHtml(district.distrito)}</option>`
+      )),
+    ].join("");
+    elements.districtFilter.value = selectedDistrict;
+    elements.districtFilter.disabled = selectedCanton === "Todos";
   }
 
   function updateSystemFilterOptions() {
@@ -713,27 +908,39 @@
     ].join("");
     elements.regionFilter.value = selectedRegion;
     elements.categoryFilter.value = selectedCategory;
+    updateTerritorialFilterOptions();
     updateSystemFilterOptions();
   }
 
   function applyFilters(message = true, fit = true) {
     elements.regionFilter.value = selectedRegion;
     elements.categoryFilter.value = selectedCategory;
+    updateTerritorialFilterOptions();
     updateSystemFilterOptions();
     const features = buildSystemsLayer();
-    const bounds = systemsLayer.getBounds();
+    refreshTerritorialLayers();
+    const administrativeBounds = selectedAdministrativeBounds();
+    const systemBounds = systemsLayer.getBounds();
+    const dataBounds = selectedDataBounds(systemBounds);
+    const bounds = selectedDistrict !== "Todos"
+      ? administrativeBounds
+      : dataBounds.isValid() ? dataBounds : administrativeBounds;
     if (fit && bounds.isValid()) {
       map.fitBounds(bounds, {
         padding: [32, 32],
-        maxZoom: selectedSystem === "Todos" ? 13 : 15,
+        maxZoom: selectedSystem !== "Todos"
+          ? 15
+          : selectedDistrict !== "Todos" ? 14 : selectedCanton !== "Todos" ? 12 : 10,
       });
     }
     if (message) {
+      const counts = visibleTerritorialCounts();
+      const hasResults = features.length + counts.asadas + counts.thiessen > 0;
       showMessage(
-        features.length
-          ? `${features.length} sistema${features.length === 1 ? "" : "s"} visible${features.length === 1 ? "" : "s"}.`
-          : "No hay sistemas que coincidan con los filtros.",
-        features.length === 0,
+        hasResults
+          ? `${features.length} sistema${features.length === 1 ? "" : "s"}, ${counts.asadas} punto${counts.asadas === 1 ? "" : "s"} ASADA y ${counts.thiessen} cobertura${counts.thiessen === 1 ? "" : "s"} ASADA en el filtro.`
+          : "No hay sistemas ni ASADAS que coincidan con los filtros.",
+        !hasResults,
       );
     }
   }
@@ -742,6 +949,9 @@
     selectedRegion = "Todas";
     selectedSystem = "Todos";
     selectedCategory = "Todas";
+    selectedProvince = "Todas";
+    selectedCanton = "Todos";
+    selectedDistrict = "Todos";
     applyFilters(message, false);
   }
 
@@ -765,6 +975,9 @@
     selectedRegion = match.region;
     selectedSystem = match.codigo;
     selectedCategory = "Todas";
+    selectedProvince = "Todas";
+    selectedCanton = "Todos";
+    selectedDistrict = "Todos";
     applyFilters(false, false);
 
     const matches = systemsData.features.filter(
@@ -1109,6 +1322,27 @@
       });
     });
 
+    elements.provinceFilter.addEventListener("change", () => {
+      selectedProvince = elements.provinceFilter.value;
+      selectedCanton = "Todos";
+      selectedDistrict = "Todos";
+      selectedSystem = "Todos";
+      applyFilters();
+    });
+
+    elements.cantonFilter.addEventListener("change", () => {
+      selectedCanton = elements.cantonFilter.value;
+      selectedDistrict = "Todos";
+      selectedSystem = "Todos";
+      applyFilters();
+    });
+
+    elements.districtFilter.addEventListener("change", () => {
+      selectedDistrict = elements.districtFilter.value;
+      selectedSystem = "Todos";
+      applyFilters();
+    });
+
     elements.regionFilter.addEventListener("change", () => {
       selectedRegion = elements.regionFilter.value;
       selectedSystem = "Todos";
@@ -1257,6 +1491,10 @@
       ]);
 
       systemsData = systems;
+      asadasData = asadas;
+      thiessenData = thiessen;
+      districtsData = districts;
+      indexDistricts();
       buildSystemsLayer();
       buildOptionalLayers({
         municipal,

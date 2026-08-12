@@ -10,9 +10,12 @@ Streamlit e incorpora una interfaz cartográfica Leaflet autocontenida.
 - clasificación ICH I, II, III y IV con prioridad gráfica sobre las demás capas;
 - explicación ampliada de cada categoría ICH mediante ventanas activadas por clic;
 - consulta por nombre o código del sistema;
-- filtros combinables por región operativa, categoría hídrica y sistema;
+- filtros combinables por provincia, cantón, distrito, región operativa,
+  categoría hídrica y sistema;
+- filtrado geoespacial de sistemas AyA, puntos ASADA y coberturas Thiessen;
 - popup público limitado a categoría hídrica, nombre, dotación estimada,
   consumo estimado por conexión y factor de ocupación;
+- capa nacional de 5.400 puntos ASADA con consulta del nombre del operador;
 - capas de municipalidades, ESPH, ASADAS, organizaciones de usuarios de agua
   (ONA/SUA), áreas protegidas y distritos;
 - criterios especiales con el tipo de restricción o facilidad y el código de
@@ -52,15 +55,15 @@ atributos públicos permitidos.
 
 | Archivo | Atributos públicos permitidos |
 |---|---|
-| `sistemas.geojson.gz` | `codigo`, `region`, `nombre`, `ich`, `dotacion_lpd`, `consumo_conexion_m3_mes`, `factor_ocupacion` |
+| `sistemas.geojson.gz` | `codigo`, `region`, `nombre`, `ich`, `dotacion_lpd`, `consumo_conexion_m3_mes`, `factor_ocupacion`, `territorios` |
 | `municipalidades.geojson` | `operador`, `sistema` |
 | `esph.geojson` | `operador`, `sistema` |
-| `asadas.geojson` | `codigo`, `operador` |
-| `cobertura-thiessen-asadas.geojson` | `codigo`, `referencia`, `provincia`, `canton`, `distrito`, `alcance`, `metodo` |
+| `asadas.geojson.gz` | `codigo`, `nombre`, `territorio` |
+| `cobertura-thiessen-asadas.geojson.gz` | `codigo`, `referencia`, `provincia`, `canton`, `distrito`, `alcance`, `metodo`, `territorios` |
 | `criterios-especiales.geojson` | `codigo_sistema`, `nombre_sistema`, `codigo_abastecimiento`, `zona`, `zona_operativa`, `tipo`, `detalle` |
 | `onas.geojson` | `operador`, `sistema` |
 | `areas-protegidas.geojson` | `codigo`, `nombre`, `categoria` |
-| `distritos.geojson` | `provincia`, `canton`, `distrito` |
+| `distritos.geojson.gz` | `clave`, `codigo`, `provincia`, `canton`, `distrito` |
 
 Después de sustituir archivos, ejecute:
 
@@ -86,6 +89,25 @@ python scripts/check_public_data.py
 El proceso exige correspondencia completa y única entre ambos archivos. No
 publica producción, ANC, demanda, balance, servicios atendidos ni los demás
 campos de cálculo del Excel.
+
+### Actualizar ASADAS y distritos nacionales
+
+La capa de puntos ASADA y la división distrital se importan directamente desde
+SHP WGS84. El proceso conserva los vértices distritales, publica solo los
+atributos permitidos y calcula mediante intersección espacial la pertenencia de
+los 179 sistemas y de las coberturas Thiessen a cada territorio.
+
+```bash
+pip install -r requirements-update.txt
+python scripts/import_national_territorial_layers.py \
+  --asadas-shapefile "/ruta/ASADAS_AYA.shp" \
+  --districts-shapefile "/ruta/Distritos_CR.shp"
+python scripts/check_public_data.py
+```
+
+Los selectores del visor funcionan en cascada: Cantón se habilita al escoger
+Provincia y Distrito se habilita al escoger Cantón. La opción “Todo el país”
+restablece la cobertura nacional.
 
 ### Actualización directa desde SHP
 
