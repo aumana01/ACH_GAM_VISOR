@@ -46,6 +46,138 @@ SCRIPT_FILES = (
 )
 BRAND_LOGO = MAP_DIR / "assets" / "logo-aya-65.jpg"
 
+# Parche de interacción que se ejecuta inmediatamente después de Leaflet y antes
+# de app.js. Mantiene una referencia al mapa para poder limpiar objetos temporales
+# y hace que las coberturas sean transparentes al clic mientras se coloca un pin.
+MAP_INTERACTION_FIX = r"""
+(() => {
+  "use strict";
+
+  const originalMapFactory = L.map;
+  L.map = function (...args) {
+    const map = originalMapFactory(...args);
+    window.__ACH_GAM_MAP__ = map;
+    return map;
+  };
+
+  window.setTimeout(() => {
+    const map = window.__ACH_GAM_MAP__;
+    if (!map) return;
+
+    const pinTool = document.getElementById("pinTool");
+    const measureTool = document.getElementById("measureTool");
+    const clearLayers = document.getElementById("clearLayers");
+    const clearMeasurement = document.getElementById("clearMeasurement");
+    const measurementPanel = document.getElementById("measurementPanel");
+    const coordinateLatitude = document.getElementById("coordinateLatitude");
+    const coordinateLongitude = document.getElementById("coordinateLongitude");
+    const mapMessage = document.getElementById("mapMessage");
+
+    const clickThroughPanes = [
+      "restrictions",
+      "reference",
+      "estimatedCoverage",
+      "operators",
+      "criteria",
+      "systems",
+      "operatorPoints",
+      "drawings",
+    ];
+    const previousPointerEvents = new Map();
+
+    function setCoordinateClickThrough(enabled) {
+      clickThroughPanes.forEach((paneName) => {
+        const pane = map.getPane(paneName);
+        if (!pane) return;
+        if (enabled) {
+          if (!previousPointerEvents.has(paneName)) {
+            previousPointerEvents.set(paneName, pane.style.pointerEvents || "");
+          }
+          pane.style.pointerEvents = "none";
+        } else if (previousPointerEvents.has(paneName)) {
+          pane.style.pointerEvents = previousPointerEvents.get(paneName);
+          previousPointerEvents.delete(paneName);
+        }
+      });
+    }
+
+    function syncCoordinateClickThrough() {
+      setCoordinateClickThrough(Boolean(pinTool?.classList.contains("active")));
+    }
+
+    function disableGeomanModes() {
+      map.pm?.disableDraw?.();
+      map.pm?.disableGlobalEditMode?.();
+      map.pm?.disableGlobalRemovalMode?.();
+      map.pm?.disableGlobalDragMode?.();
+      map.pm?.disableGlobalRotateMode?.();
+      map.pm?.disableGlobalCutMode?.();
+    }
+
+    function removeTemporaryMapLayers() {
+      disableGeomanModes();
+
+      const geomanLayers = map.pm?.getGeomanDrawLayers?.() || [];
+      geomanLayers.forEach((layer) => {
+        if (map.hasLayer(layer)) map.removeLayer(layer);
+      });
+
+      const temporaryLayers = [];
+      map.eachLayer((layer) => {
+        const pane = layer?.options?.pane;
+        if (pane === "drawings" || pane === "coordinatePins") {
+          temporaryLayers.push(layer);
+        }
+      });
+      temporaryLayers.forEach((layer) => {
+        if (map.hasLayer(layer)) map.removeLayer(layer);
+      });
+    }
+
+    pinTool?.addEventListener("click", () => {
+      window.setTimeout(syncCoordinateClickThrough, 0);
+    });
+
+    measureTool?.addEventListener("click", () => {
+      window.setTimeout(() => setCoordinateClickThrough(false), 0);
+    });
+
+    map.on("click", () => {
+      window.setTimeout(syncCoordinateClickThrough, 0);
+    });
+    map.on("pm:drawstart", () => setCoordinateClickThrough(false));
+
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") {
+        window.setTimeout(() => setCoordinateClickThrough(false), 0);
+      }
+    });
+
+    clearLayers?.addEventListener("click", () => {
+      setCoordinateClickThrough(false);
+
+      if (pinTool?.classList.contains("active")) pinTool.click();
+      if (measureTool?.classList.contains("active") || !measurementPanel?.hidden) {
+        clearMeasurement?.click();
+      }
+
+      removeTemporaryMapLayers();
+      map.closePopup();
+
+      if (coordinateLatitude) coordinateLatitude.value = "";
+      if (coordinateLongitude) coordinateLongitude.value = "";
+
+      if (mapMessage) {
+        mapMessage.textContent = "Mapa restablecido: se eliminaron dibujos, pines, mediciones e importaciones temporales.";
+        mapMessage.classList.remove("error");
+        mapMessage.classList.add("visible");
+        window.setTimeout(() => mapMessage.classList.remove("visible"), 4200);
+      }
+    });
+  }, 0);
+})();
+"""
+
 
 st.set_page_config(
     page_title="Estado Hídrico de los Sistemas AyA · GAM y Periféricos",
@@ -161,7 +293,8 @@ def build_map_html(signature: tuple[tuple[str, int, int], ...]) -> str:
         first_script,
         f"<script>window.ACH_GAM_DATA={data_script};</script>\n"
         f"<script>window.ACH_GAM_DATA_GZIP={gzip_script};</script>\n"
-        f"<script>{_safe_script(SCRIPT_FILES[0].read_text(encoding='utf-8'))}</script>",
+        f"<script>{_safe_script(SCRIPT_FILES[0].read_text(encoding='utf-8'))}</script>\n"
+        f"<script>{_safe_script(MAP_INTERACTION_FIX)}</script>",
     )
 
     replacements = (
