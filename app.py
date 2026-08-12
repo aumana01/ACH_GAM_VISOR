@@ -19,7 +19,7 @@ DATA_DIR = MAP_DIR / "data"
 
 DATA_FILES = {
     "metadata": "metadata.json",
-    "systems": "sistemas.geojson",
+    "systems": "sistemas.geojson.gz",
     "municipal": "municipalidades.geojson",
     "esph": "esph.geojson",
     "asadas": "asadas.geojson",
@@ -48,7 +48,7 @@ BRAND_LOGO = MAP_DIR / "assets" / "logo-aya-65.jpg"
 
 
 st.set_page_config(
-    page_title="Visor de Estado Hídrico del Gran Área Metropolitana",
+    page_title="Estado Hídrico de los Sistemas AyA · GAM y Periféricos",
     page_icon="💧",
     layout="wide",
     initial_sidebar_state="collapsed",
@@ -138,19 +138,29 @@ def build_map_html(signature: tuple[tuple[str, int, int], ...]) -> str:
         f'src="{_asset_data_uri(BRAND_LOGO)}"',
     )
 
-    embedded_data = {
-        key: json.loads((DATA_DIR / filename).read_text(encoding="utf-8"))
-        for key, filename in DATA_FILES.items()
-    }
+    embedded_data = {}
+    embedded_gzip = {}
+    for key, filename in DATA_FILES.items():
+        path = DATA_DIR / filename
+        if path.suffix == ".gz":
+            embedded_gzip[key] = base64.b64encode(path.read_bytes()).decode("ascii")
+        else:
+            embedded_data[key] = json.loads(path.read_text(encoding="utf-8"))
     data_script = json.dumps(
         embedded_data,
         ensure_ascii=False,
         separators=(",", ":"),
     ).replace("</", "<\\/")
+    gzip_script = json.dumps(
+        embedded_gzip,
+        ensure_ascii=True,
+        separators=(",", ":"),
+    )
     first_script = '<script src="vendor/leaflet/leaflet.js"></script>'
     html = html.replace(
         first_script,
         f"<script>window.ACH_GAM_DATA={data_script};</script>\n"
+        f"<script>window.ACH_GAM_DATA_GZIP={gzip_script};</script>\n"
         f"<script>{_safe_script(SCRIPT_FILES[0].read_text(encoding='utf-8'))}</script>",
     )
 
@@ -257,6 +267,6 @@ try:
     )
 except (FileNotFoundError, json.JSONDecodeError, OSError) as error:
     st.error(
-        "No fue posible cargar el Visor de Estado Hídrico del Gran Área Metropolitana. "
+        "No fue posible cargar el Visor de Estado Hídrico de los Sistemas AyA. "
         f"Revise los archivos públicos del proyecto: {error}"
     )

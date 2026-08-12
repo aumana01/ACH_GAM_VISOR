@@ -65,7 +65,7 @@
 
   const DATA_FILES = {
     metadata: "data/metadata.json",
-    systems: "data/sistemas.geojson",
+    systems: "data/sistemas.geojson.gz",
     municipal: "data/municipalidades.geojson",
     esph: "data/esph.geojson",
     asadas: "data/asadas.geojson",
@@ -76,14 +76,16 @@
     districts: "data/distritos.geojson",
   };
 
-  const DEFAULT_BOUNDS = L.latLngBounds([9.646, -84.505], [10.025, -83.925]);
+  const DEFAULT_BOUNDS = L.latLngBounds([8.4, -85.9], [11.3, -82.7]);
   const layerStore = {};
   const layerFactories = {};
   const importGroup = L.featureGroup();
   const measurementGroup = L.featureGroup();
   let systemsData = null;
   let systemsLayer = null;
-  let selectedCondition = "Todos";
+  let selectedRegion = "Todas";
+  let selectedSystem = "Todos";
+  let selectedCategory = "Todas";
   let messageTimer = null;
   let pinMode = false;
   let coordinatePin = null;
@@ -97,6 +99,11 @@
     searchForm: document.getElementById("systemSearchForm"),
     searchInput: document.getElementById("systemSearch"),
     searchOptions: document.getElementById("systemOptions"),
+    regionFilter: document.getElementById("regionFilter"),
+    systemFilter: document.getElementById("systemFilter"),
+    categoryFilter: document.getElementById("categoryFilter"),
+    clearFilters: document.getElementById("clearFilters"),
+    visibleCount: document.getElementById("visibleCount"),
     coordinateForm: document.getElementById("coordinateSearchForm"),
     coordinateLatitude: document.getElementById("coordinateLatitude"),
     coordinateLongitude: document.getElementById("coordinateLongitude"),
@@ -125,7 +132,7 @@
     zoomControl: false,
     minZoom: 7,
     maxZoom: 20,
-    preferCanvas: false,
+    preferCanvas: true,
     doubleClickZoom: true,
   });
 
@@ -369,8 +376,24 @@
     }
   }
 
+  function formatMetric(value, digits, unit) {
+    const number = Number(value);
+    if (!Number.isFinite(number)) return "Sin dato";
+    const formatted = new Intl.NumberFormat("es-CR", {
+      minimumFractionDigits: digits,
+      maximumFractionDigits: digits,
+    }).format(number);
+    return unit ? `${formatted} ${unit}` : formatted;
+  }
+
   function systemPopup(properties) {
-    const statusClass = properties.condicion === "Déficit" ? "deficit" : "surplus";
+    const categoryButton = CATEGORY_INFO[properties.ich]
+      ? `<button
+            type="button"
+            class="popup-category-info"
+            data-popup-ich="${escapeHtml(properties.ich)}"
+          >Conocer esta categoría hídrica</button>`
+      : "";
     return `
       <article class="popup-card">
         <header class="popup-head">
@@ -379,18 +402,26 @@
         </header>
         <div class="popup-body">
           <div class="popup-row">
-            <span>Condición</span>
-            <span class="status-pill ${statusClass}">${escapeHtml(properties.condicion)}</span>
+            <span>Región operativa</span>
+            <span>${escapeHtml(properties.region)}</span>
           </div>
           <div class="popup-row">
-            <span>Clasificación ICH</span>
-            <span>${escapeHtml(properties.ich)}</span>
+            <span>Categoría hídrica</span>
+            <span class="ich-pill ich-${escapeHtml(properties.ich.toLowerCase().replace(/\s+/g, "-"))}">${escapeHtml(properties.ich)}</span>
           </div>
-          <button
-            type="button"
-            class="popup-category-info"
-            data-popup-ich="${escapeHtml(properties.ich)}"
-          >Conocer esta categoría hídrica</button>
+          <div class="popup-row">
+            <span>Dotación estimada</span>
+            <span>${escapeHtml(formatMetric(properties.dotacion_lpd, 1, "L/persona/día"))}</span>
+          </div>
+          <div class="popup-row">
+            <span>Consumo por conexión estimado</span>
+            <span>${escapeHtml(formatMetric(properties.consumo_conexion_m3_mes, 2, "m³/mes/conexión"))}</span>
+          </div>
+          <div class="popup-row">
+            <span>Factor de ocupación</span>
+            <span>${escapeHtml(formatMetric(properties.factor_ocupacion, 2, "personas/conexión"))}</span>
+          </div>
+          ${categoryButton}
         </div>
       </article>
     `;
@@ -452,11 +483,12 @@
 
   function buildSystemsLayer() {
     if (systemsLayer) map.removeLayer(systemsLayer);
-    const features = selectedCondition === "Todos"
-      ? systemsData.features
-      : systemsData.features.filter(
-        (item) => item.properties.condicion === selectedCondition,
-      );
+    const features = systemsData.features.filter((item) => {
+      const properties = item.properties;
+      return (selectedRegion === "Todas" || properties.region === selectedRegion)
+        && (selectedSystem === "Todos" || properties.codigo === selectedSystem)
+        && (selectedCategory === "Todas" || properties.ich === selectedCategory);
+    });
 
     systemsLayer = L.geoJSON(
       { type: "FeatureCollection", features },
@@ -473,7 +505,7 @@
         onEachFeature: (item, layer) => {
           layer.bindPopup(systemPopup(item.properties), {
             closeButton: true,
-            maxWidth: 300,
+            maxWidth: 350,
           });
           layer.bindTooltip(
             `${escapeHtml(item.properties.codigo)} · ${escapeHtml(item.properties.nombre)}`,
@@ -487,6 +519,8 @@
       },
     ).addTo(map);
     systemsLayer.bringToFront();
+    if (elements.visibleCount) elements.visibleCount.textContent = features.length;
+    return features;
   }
 
   function polygonLayer(data, style, popupBuilder, pane) {
@@ -646,15 +680,69 @@
       .join("");
   }
 
-  function applyCondition(condition) {
-    selectedCondition = condition;
-    document.querySelectorAll(".filter-tab").forEach((button) => {
-      button.classList.toggle("active", button.dataset.condition === condition);
-    });
-    buildSystemsLayer();
-    showMessage(
-      condition === "Todos" ? "Se muestran todos los sistemas." : `Filtro aplicado: ${condition}.`,
-    );
+  function systemFilterRecords() {
+    return uniqueSystems().filter((item) => (
+      (selectedRegion === "Todas" || item.region === selectedRegion)
+      && (selectedCategory === "Todas" || item.ich === selectedCategory)
+    ));
+  }
+
+  function updateSystemFilterOptions() {
+    const records = systemFilterRecords();
+    const codes = new Set(records.map((item) => item.codigo));
+    if (selectedSystem !== "Todos" && !codes.has(selectedSystem)) {
+      selectedSystem = "Todos";
+    }
+    elements.systemFilter.innerHTML = [
+      '<option value="Todos">Todos los sistemas</option>',
+      ...records.map((item) => (
+        `<option value="${escapeHtml(item.codigo)}">${escapeHtml(item.codigo)} · ${escapeHtml(item.nombre)}</option>`
+      )),
+    ].join("");
+    elements.systemFilter.value = selectedSystem;
+  }
+
+  function populateFilters() {
+    const regions = [...new Set(uniqueSystems().map((item) => item.region))]
+      .sort((first, second) => first.localeCompare(second, "es"));
+    elements.regionFilter.innerHTML = [
+      '<option value="Todas">Todas las regiones</option>',
+      ...regions.map((region) => (
+        `<option value="${escapeHtml(region)}">${escapeHtml(region)}</option>`
+      )),
+    ].join("");
+    elements.regionFilter.value = selectedRegion;
+    elements.categoryFilter.value = selectedCategory;
+    updateSystemFilterOptions();
+  }
+
+  function applyFilters(message = true, fit = true) {
+    elements.regionFilter.value = selectedRegion;
+    elements.categoryFilter.value = selectedCategory;
+    updateSystemFilterOptions();
+    const features = buildSystemsLayer();
+    const bounds = systemsLayer.getBounds();
+    if (fit && bounds.isValid()) {
+      map.fitBounds(bounds, {
+        padding: [32, 32],
+        maxZoom: selectedSystem === "Todos" ? 13 : 15,
+      });
+    }
+    if (message) {
+      showMessage(
+        features.length
+          ? `${features.length} sistema${features.length === 1 ? "" : "s"} visible${features.length === 1 ? "" : "s"}.`
+          : "No hay sistemas que coincidan con los filtros.",
+        features.length === 0,
+      );
+    }
+  }
+
+  function resetFilters(message = true) {
+    selectedRegion = "Todas";
+    selectedSystem = "Todos";
+    selectedCategory = "Todas";
+    applyFilters(message, false);
   }
 
   function locateSystem(query) {
@@ -674,9 +762,10 @@
       return;
     }
 
-    if (selectedCondition !== "Todos" && selectedCondition !== match.condicion) {
-      applyCondition("Todos");
-    }
+    selectedRegion = match.region;
+    selectedSystem = match.codigo;
+    selectedCategory = "Todas";
+    applyFilters(false, false);
 
     const matches = systemsData.features.filter(
       (item) => item.properties.codigo === match.codigo,
@@ -1020,9 +1109,24 @@
       });
     });
 
-    document.querySelectorAll(".filter-tab").forEach((button) => {
-      button.addEventListener("click", () => applyCondition(button.dataset.condition));
+    elements.regionFilter.addEventListener("change", () => {
+      selectedRegion = elements.regionFilter.value;
+      selectedSystem = "Todos";
+      applyFilters();
     });
+
+    elements.categoryFilter.addEventListener("change", () => {
+      selectedCategory = elements.categoryFilter.value;
+      selectedSystem = "Todos";
+      applyFilters();
+    });
+
+    elements.systemFilter.addEventListener("change", () => {
+      selectedSystem = elements.systemFilter.value;
+      applyFilters();
+    });
+
+    elements.clearFilters.addEventListener("click", () => resetFilters());
 
     elements.searchForm.addEventListener("submit", (event) => {
       event.preventDefault();
@@ -1040,7 +1144,7 @@
         const layer = layerStore[input.dataset.layer];
         if (layer) map.removeLayer(layer);
       });
-      applyCondition("Todos");
+      resetFilters(false);
       map.fitBounds(DEFAULT_BOUNDS, { padding: [18, 18] });
     });
 
@@ -1112,10 +1216,28 @@
     window.addEventListener("resize", () => map.invalidateSize({ debounceMoveend: true }));
   }
 
+  async function decompressGzipJson(payload) {
+    if (typeof DecompressionStream !== "function") {
+      throw new Error("Este navegador no admite la capa geográfica comprimida. Actualícelo a una versión reciente.");
+    }
+    const bytes = typeof payload === "string"
+      ? Uint8Array.from(atob(payload), (character) => character.charCodeAt(0))
+      : new Uint8Array(payload);
+    const stream = new Blob([bytes])
+      .stream()
+      .pipeThrough(new DecompressionStream("gzip"));
+    const source = await new Response(stream).text();
+    return JSON.parse(source);
+  }
+
   async function loadJson(key, url) {
     if (window.ACH_GAM_DATA?.[key]) return window.ACH_GAM_DATA[key];
+    if (window.ACH_GAM_DATA_GZIP?.[key]) {
+      return decompressGzipJson(window.ACH_GAM_DATA_GZIP[key]);
+    }
     const response = await fetch(url, { cache: "no-cache" });
     if (!response.ok) throw new Error(`No fue posible cargar ${url}.`);
+    if (url.endsWith(".gz")) return decompressGzipJson(await response.arrayBuffer());
     return response.json();
   }
 
@@ -1147,12 +1269,13 @@
         districts,
       });
       populateSearch();
+      populateFilters();
       bindInterface();
 
       const metadataLabels = {
         systemCount: metadata.systems,
-        deficitCount: metadata.deficit,
-        surplusCount: metadata.surplus,
+        regionCount: metadata.regions,
+        visibleCount: metadata.systems,
         dataPeriod: metadata.period || "No indicado",
       };
       Object.entries(metadataLabels).forEach(([id, value]) => {

@@ -1,8 +1,8 @@
-# Visor de Estado Hídrico del Gran Área Metropolitana
+# Visor de Estado Hídrico de los Sistemas AyA
 
-Visor de condición hídrica y coberturas de abastecimiento de agua potable en la
-Gran Área Metropolitana de Costa Rica. La aplicación se ejecuta
-con Streamlit e incorpora una interfaz cartográfica Leaflet autocontenida.
+Visor de categoría hídrica y coberturas de los sistemas de agua potable AyA de
+la GAM y las regiones periféricas de Costa Rica. La aplicación se ejecuta con
+Streamlit e incorpora una interfaz cartográfica Leaflet autocontenida.
 
 ## Funciones disponibles
 
@@ -10,6 +10,9 @@ con Streamlit e incorpora una interfaz cartográfica Leaflet autocontenida.
 - clasificación ICH I, II, III y IV con prioridad gráfica sobre las demás capas;
 - explicación ampliada de cada categoría ICH mediante ventanas activadas por clic;
 - consulta por nombre o código del sistema;
+- filtros combinables por región operativa, categoría hídrica y sistema;
+- popup público limitado a categoría hídrica, nombre, dotación estimada,
+  consumo estimado por conexión y factor de ocupación;
 - capas de municipalidades, ESPH, ASADAS, organizaciones de usuarios de agua
   (ONA/SUA), áreas protegidas y distritos;
 - criterios especiales con el tipo de restricción o facilidad y el código de
@@ -49,7 +52,7 @@ atributos públicos permitidos.
 
 | Archivo | Atributos públicos permitidos |
 |---|---|
-| `sistemas.geojson` | `codigo`, `nombre`, `condicion`, `ich` |
+| `sistemas.geojson.gz` | `codigo`, `region`, `nombre`, `ich`, `dotacion_lpd`, `consumo_conexion_m3_mes`, `factor_ocupacion` |
 | `municipalidades.geojson` | `operador`, `sistema` |
 | `esph.geojson` | `operador`, `sistema` |
 | `asadas.geojson` | `codigo`, `operador` |
@@ -64,6 +67,25 @@ Después de sustituir archivos, ejecute:
 ```bash
 python scripts/check_public_data.py
 ```
+
+### Actualizar sistemas AyA y datos ACH
+
+La capa principal se genera relacionando el campo `codsistema` del SHP con la
+columna `CODIGO SISTEMA` del Excel. Los códigos se normalizan sin guiones, por
+ejemplo `MEA01` y `PCA14`. La geometría se conserva con precisión submétrica y
+se comprime para reducir el tiempo de carga del visor.
+
+```bash
+pip install -r requirements-update.txt
+python scripts/import_aya_systems.py \
+  --shapefile "/ruta/Sistemas_AP_AYA.shp" \
+  --workbook "/ruta/Datos ACH Streamlit Gam Perifericos.xlsx"
+python scripts/check_public_data.py
+```
+
+El proceso exige correspondencia completa y única entre ambos archivos. No
+publica producción, ANC, demanda, balance, servicios atendidos ni los demás
+campos de cálculo del Excel.
 
 ### Actualización directa desde SHP
 
@@ -102,7 +124,7 @@ municipalidades, ESPH y las ASADAS. Para las capas municipal y ONA/SUA, el
 importador conserva las geometrías que intersectan la extensión GAM sin
 recortarlas ni simplificarlas.
 
-Para regenerar todos los archivos desde las fuentes originales:
+Para regenerar las capas complementarias desde las fuentes originales:
 
 1. Cree una carpeta local `source_private/` (está excluida de Git).
 2. Copie allí los diez archivos con los nombres indicados en
@@ -115,7 +137,7 @@ python scripts/update_public_data.py
 python scripts/check_public_data.py
 ```
 
-El proceso elimina correos, teléfonos, balances, identificadores internos,
+Los procesos eliminan correos, teléfonos, balances, identificadores internos,
 fechas de edición y cualquier otro atributo que no esté en la tabla anterior.
 Nunca publique la carpeta `source_private/`.
 

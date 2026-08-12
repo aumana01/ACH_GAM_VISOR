@@ -28,7 +28,8 @@ body {
 }
 
 button,
-input {
+input,
+select {
   font: inherit;
 }
 
@@ -129,6 +130,14 @@ button {
   line-height: 1.24;
 }
 
+.brand-copy p {
+  margin: 0.28rem 0 0;
+  color: #c5e8f8;
+  font-size: 0.69rem;
+  font-weight: 700;
+  letter-spacing: 0.035em;
+}
+
 .icon-button {
   width: 36px;
   height: 36px;
@@ -174,12 +183,12 @@ button {
   background: #f7fbfe;
 }
 
-.summary-card.deficit-card {
-  background: #fff5f1;
-  border-color: #ffd9ca;
+.summary-card.region-card {
+  background: #fff9e9;
+  border-color: #ead79c;
 }
 
-.summary-card.surplus-card {
+.summary-card.visible-card {
   background: #f0fbf5;
   border-color: #cdebd9;
 }
@@ -309,32 +318,55 @@ button {
   background: var(--aya-blue);
 }
 
-.filter-tabs {
+.system-filters {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 0.35rem;
-  margin-top: 0.72rem;
-  padding: 0.25rem;
-  border-radius: 9px;
-  background: #edf3f8;
+  gap: 0.52rem;
+  margin-top: 0.78rem;
+  padding-top: 0.72rem;
+  border-top: 1px solid #e1eaf1;
 }
 
-.filter-tab {
-  min-height: 33px;
-  padding: 0.35rem;
+.filter-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.filter-heading p {
+  margin: 0;
   color: #506478;
-  font-size: 0.72rem;
-  font-weight: 700;
-  cursor: pointer;
-  border: 0;
-  border-radius: 7px;
-  background: transparent;
+  font-size: 0.68rem;
+  font-weight: 800;
 }
 
-.filter-tab.active {
-  color: var(--aya-blue);
+.system-filters label > span {
+  display: block;
+  margin-bottom: 0.22rem;
+  color: var(--muted);
+  font-size: 0.62rem;
+  font-weight: 750;
+}
+
+.system-filters select {
+  width: 100%;
+  min-width: 0;
+  height: 38px;
+  padding: 0 2rem 0 0.62rem;
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 0.72rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  border: 1px solid #bbcbd9;
+  border-radius: 8px;
+  outline: none;
   background: white;
-  box-shadow: 0 1px 4px rgba(15, 42, 67, 0.14);
+}
+
+.system-filters select:focus {
+  border-color: var(--aya-cyan);
+  box-shadow: 0 0 0 3px rgba(32, 168, 224, 0.16);
 }
 
 .layer-group {
@@ -511,6 +543,12 @@ button {
 .legend-ii { background: #ff8c00; }
 .legend-iii { background: #ffd700; }
 .legend-iv { background: #00a651; }
+.legend-unknown { background: #8b98a5; }
+
+.legend-info-spacer {
+  width: 24px;
+  height: 24px;
+}
 
 .legend-list strong {
   margin-right: 0.3rem;
@@ -690,9 +728,27 @@ button {
 }
 
 .popup-row span:last-child {
+  max-width: 62%;
   text-align: right;
   font-weight: 750;
 }
+
+.ich-pill {
+  display: inline-flex;
+  min-width: 31px;
+  justify-content: center;
+  padding: 0.14rem 0.38rem;
+  color: white;
+  border-radius: 999px;
+  font-size: 0.67rem;
+  font-weight: 850;
+}
+
+.ich-i { background: #d40000; }
+.ich-ii { background: #d96b00; }
+.ich-iii { color: #4c3b00; background: #ffd700; }
+.ich-iv { background: #008c46; }
+.ich-sin-datos { background: #718091; }
 
 .status-pill {
   display: inline-flex;

@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import gzip
 import re
 import sys
 from pathlib import Path
@@ -14,7 +15,15 @@ ROOT = Path(__file__).resolve().parents[1]
 DATA_DIR = ROOT / "map" / "data"
 
 SCHEMAS = {
-    "sistemas.geojson": {"codigo", "nombre", "condicion", "ich"},
+    "sistemas.geojson.gz": {
+        "codigo",
+        "region",
+        "nombre",
+        "ich",
+        "dotacion_lpd",
+        "consumo_conexion_m3_mes",
+        "factor_ocupacion",
+    },
     "municipalidades.geojson": {"operador", "sistema"},
     "esph.geojson": {"operador", "sistema"},
     "asadas.geojson": {"codigo", "operador"},
@@ -42,7 +51,7 @@ SCHEMAS = {
 }
 
 FORBIDDEN_KEY = re.compile(
-    r"correo|tel[eé]fono|globalid|objectid|created_|edited_|servicios|balance|fuente",
+    r"correo|tel[eé]fono|globalid|objectid|created_|edited_|servicios|balance|fuente|producci[oó]n|demanda|anc|equivalencia",
     re.IGNORECASE,
 )
 FAILURES: list[str] = []
@@ -50,8 +59,11 @@ FAILURES: list[str] = []
 
 def load_json(path: Path) -> dict[str, Any]:
     try:
+        if path.suffix == ".gz":
+            with gzip.open(path, "rt", encoding="utf-8-sig") as source:
+                return json.load(source)
         return json.loads(path.read_text(encoding="utf-8-sig"))
-    except (OSError, json.JSONDecodeError) as error:
+    except (OSError, EOFError, json.JSONDecodeError) as error:
         FAILURES.append(f"{path.name}: no se puede leer ({error}).")
         return {}
 
@@ -80,7 +92,10 @@ for filename, allowed_keys in SCHEMAS.items():
     if not path.exists():
         FAILURES.append(f"{filename}: archivo faltante.")
         continue
-    size_limit = 30_000_000 if filename == "cobertura-thiessen-asadas.geojson" else 5_000_000
+    size_limit = 30_000_000 if filename in {
+        "cobertura-thiessen-asadas.geojson",
+        "sistemas.geojson.gz",
+    } else 15_000_000
     if path.stat().st_size > size_limit:
         FAILURES.append(
             f"{filename}: supera el límite público de {size_limit // 1_000_000} MB."
@@ -111,22 +126,38 @@ for filename, allowed_keys in SCHEMAS.items():
         visit_coordinates(feature["geometry"].get("coordinates"), filename)
 
 
-systems = collections.get("sistemas.geojson", {}).get("features", [])
+systems = collections.get("sistemas.geojson.gz", {}).get("features", [])
 unique_systems: dict[str, dict[str, Any]] = {}
+valid_regions = {
+    "Brunca",
+    "Central Oeste",
+    "Chorotega",
+    "Huetar Caribe",
+    "Metropolitana",
+    "Pacífico Central",
+}
 for feature in systems:
     properties = feature.get("properties") or {}
     code = properties.get("codigo")
     name = properties.get("nombre")
-    condition = properties.get("condicion")
+    region = properties.get("region")
     ich = properties.get("ich")
     if code:
         unique_systems[code] = properties
     if not code or not name:
-        FAILURES.append("sistemas.geojson: hay un sistema sin código o nombre.")
-    if condition not in {"Déficit", "Superávit"}:
-        FAILURES.append(f"{code or 'Sin código'}: condición pública inválida.")
-    if ich not in {"I", "II", "III", "IV"}:
+        FAILURES.append("sistemas.geojson.gz: hay un sistema sin código o nombre.")
+    if not re.fullmatch(r"(?:BR|CH|CO|HC|ME|PC)A\d{2}", str(code or "")):
+        FAILURES.append(f"{code or 'Sin código'}: código público inválido.")
+    if region not in valid_regions:
+        FAILURES.append(f"{code or 'Sin código'}: región operativa inválida.")
+    if ich not in {"I", "II", "III", "IV", "SIN DATOS"}:
         FAILURES.append(f"{code or 'Sin código'}: clasificación ICH inválida.")
+    for field in ("dotacion_lpd", "consumo_conexion_m3_mes"):
+        if not isinstance(properties.get(field), (int, float)):
+            FAILURES.append(f"{code or 'Sin código'}: {field} debe ser numérico.")
+    factor = properties.get("factor_ocupacion")
+    if factor is not None and not isinstance(factor, (int, float)):
+        FAILURES.append(f"{code or 'Sin código'}: factor_ocupacion inválido.")
 
 district_features = collections.get("distritos.geojson", {}).get("features", [])
 for feature in district_features:
@@ -141,16 +172,15 @@ for feature in district_features:
             )
 
 metadata = load_json(DATA_DIR / "metadata.json")
-deficit = sum(
-    item.get("condicion") == "Déficit" for item in unique_systems.values()
-)
-surplus = sum(
-    item.get("condicion") == "Superávit" for item in unique_systems.values()
-)
+regions = {item.get("region") for item in unique_systems.values()}
+category_counts = {
+    category: sum(item.get("ich") == category for item in unique_systems.values())
+    for category in ("I", "II", "III", "IV", "SIN DATOS")
+}
 if (
     metadata.get("systems") != len(unique_systems)
-    or metadata.get("deficit") != deficit
-    or metadata.get("surplus") != surplus
+    or metadata.get("regions") != len(regions)
+    or metadata.get("categoryCounts") != category_counts
 ):
     FAILURES.append("metadata.json no coincide con los sistemas publicados.")
 
@@ -160,7 +190,9 @@ required_app_tokens = (
     "st_autorefresh(",
     "components.html(",
     "logo-aya-65.jpg",
-    "Visor de Estado Hídrico del Gran Área Metropolitana",
+    "Estado Hídrico de los Sistemas AyA · GAM y Periféricos",
+    '"systems": "sistemas.geojson.gz"',
+    "window.ACH_GAM_DATA_GZIP",
     'height: 100dvh',
     'overflow: hidden !important',
     'iframe[title="streamlit.components.v1.html"]',
@@ -170,7 +202,7 @@ for token in required_app_tokens:
         FAILURES.append(f"app.py: falta la integración requerida: {token}")
 
 index_source = (ROOT / "map" / "index.html").read_text(encoding="utf-8")
-if "Visor de Estado Hídrico del Gran Área Metropolitana" not in index_source:
+if "Visor de Estado Hídrico de los Sistemas AyA" not in index_source:
     FAILURES.append("map/index.html: falta el título oficial del visor")
 if "Información pública" in index_source:
     FAILURES.append("map/index.html: todavía muestra el texto Información pública")
@@ -200,6 +232,10 @@ required_map_tokens = (
     "popup-category-info",
     "metadataLabels",
     "if (target) target.textContent = value",
+    "regionFilter",
+    "systemFilter",
+    "categoryFilter",
+    "decompressGzipJson",
     "layerFactories.municipal",
     "layerFactories.ona",
     "Organización de usuarios de agua",
@@ -260,8 +296,8 @@ print(
         {
             "status": "ok",
             "systems": len(unique_systems),
-            "deficit": deficit,
-            "surplus": surplus,
+            "regions": len(regions),
+            "categories": category_counts,
             "publicLayers": len(SCHEMAS),
         },
         ensure_ascii=False,

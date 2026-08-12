@@ -6,9 +6,9 @@
     <meta name="theme-color" content="#002b5c">
     <meta
       name="description"
-      content="Visor de Estado Hídrico del Gran Área Metropolitana."
+      content="Visor de Estado Hídrico de los sistemas de agua potable AyA de la GAM y regiones periféricas."
     >
-    <title>Visor de Estado Hídrico del Gran Área Metropolitana</title>
+    <title>Estado Hídrico de los Sistemas AyA · GAM y Periféricos</title>
     <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
     <link rel="stylesheet" href="vendor/leaflet/leaflet.css">
     <link rel="stylesheet" href="vendor/geoman/leaflet-geoman.css">
@@ -25,7 +25,8 @@
             alt="Logo 65 años del Instituto Costarricense de Acueductos y Alcantarillados"
           >
           <div class="brand-copy">
-            <h1>Visor de Estado Hídrico del Gran Área Metropolitana</h1>
+            <h1>Visor de Estado Hídrico de los Sistemas AyA</h1>
+            <p>GAM y regiones periféricas</p>
           </div>
           <button
             class="icon-button close-sidebar"
@@ -37,22 +38,22 @@
 
         <section class="intro-block">
           <p>
-            Consulte la condición de los sistemas de abastecimiento y capas de
-            referencia de otros operadores y restricciones territoriales. La
-            barra derecha permite dibujar y agregar texto temporal.
+            Consulte la categoría hídrica de los sistemas de agua potable AyA
+            en las seis regiones operativas, junto con capas de referencia de
+            otros operadores y restricciones territoriales.
           </p>
           <div class="summary-grid" role="group" aria-label="Resumen de sistemas">
             <div class="summary-card">
               <span class="summary-value" id="systemCount">—</span>
               <span class="summary-label">Sistemas</span>
             </div>
-            <div class="summary-card deficit-card">
-              <span class="summary-value" id="deficitCount">—</span>
-              <span class="summary-label">Con déficit</span>
+            <div class="summary-card region-card">
+              <span class="summary-value" id="regionCount">—</span>
+              <span class="summary-label">Regiones</span>
             </div>
-            <div class="summary-card surplus-card">
-              <span class="summary-value" id="surplusCount">—</span>
-              <span class="summary-label">Con superávit</span>
+            <div class="summary-card visible-card">
+              <span class="summary-value" id="visibleCount">—</span>
+              <span class="summary-label">Visibles</span>
             </div>
           </div>
         </section>
@@ -70,7 +71,7 @@
               id="systemSearch"
               type="search"
               list="systemOptions"
-              placeholder="Ej. ME-A-01 o Tres Ríos"
+              placeholder="Ej. MEA01, PCA14 o Tres Ríos"
               autocomplete="off"
             >
             <datalist id="systemOptions"></datalist>
@@ -104,10 +105,34 @@
               <button class="primary-button" type="submit">Ir</button>
             </form>
           </div>
-          <div class="filter-tabs" role="group" aria-label="Filtrar por condición">
-            <button class="filter-tab active" type="button" data-condition="Todos">Todos</button>
-            <button class="filter-tab" type="button" data-condition="Déficit">Déficit</button>
-            <button class="filter-tab" type="button" data-condition="Superávit">Superávit</button>
+          <div class="system-filters" role="group" aria-label="Filtrar sistemas AyA">
+            <div class="filter-heading">
+              <p>Filtrar cobertura</p>
+              <button class="text-button" id="clearFilters" type="button">Limpiar</button>
+            </div>
+            <label>
+              <span>Región operativa</span>
+              <select id="regionFilter">
+                <option value="Todas">Todas las regiones</option>
+              </select>
+            </label>
+            <label>
+              <span>Categoría hídrica</span>
+              <select id="categoryFilter">
+                <option value="Todas">Todas las categorías</option>
+                <option value="I">I · Altamente deficitario</option>
+                <option value="II">II · Crecimiento máximo</option>
+                <option value="III">III · Transición</option>
+                <option value="IV">IV · Margen disponible</option>
+                <option value="SIN DATOS">Sin datos</option>
+              </select>
+            </label>
+            <label>
+              <span>Sistema de abastecimiento</span>
+              <select id="systemFilter">
+                <option value="Todos">Todos los sistemas</option>
+              </select>
+            </label>
           </div>
         </section>
 
@@ -126,8 +151,8 @@
               <input type="checkbox" data-layer="systems" checked disabled>
               <span class="toggle-control" aria-hidden="true"></span>
               <span>
-                <strong>Sistemas GAM</strong>
-                <small>Condición hídrica e ICH</small>
+                <strong>Sistemas AyA · GAM y periféricos</strong>
+                <small>Categoría hídrica e ICH</small>
               </span>
               <i class="layer-swatch systems-swatch" aria-hidden="true"></i>
             </label>
@@ -217,6 +242,10 @@
               <i class="legend-iv"></i><span><strong>IV</strong> Margen disponible</span>
               <button type="button" class="legend-info-button" data-ich-info="IV" aria-label="Explicar categoría hídrica IV">i</button>
             </div>
+            <div>
+              <i class="legend-unknown"></i><span><strong>—</strong> Sin datos</span>
+              <span class="legend-info-spacer" aria-hidden="true"></span>
+            </div>
           </div>
         </section>
 
@@ -265,7 +294,7 @@
           </button>
         </div>
 
-        <div id="map" tabindex="0" aria-label="Mapa de sistemas de abastecimiento"></div>
+        <div id="map" tabindex="0" aria-label="Mapa de sistemas de agua potable AyA"></div>
         <div class="loading-overlay" id="loadingOverlay" role="status" aria-live="polite">
           <div class="water-loader" aria-hidden="true"></div>
           <strong>Cargando visor público</strong>
