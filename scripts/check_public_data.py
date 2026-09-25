@@ -311,6 +311,11 @@ for token in required_map_tokens:
     if token not in map_source:
         FAILURES.append(f"map/app.js: falta la herramienta requerida: {token}")
 
+if 'baseMaps["Calles · OpenStreetMap"].addTo(map)' not in map_source:
+    FAILURES.append("map/app.js: Calles de OpenStreetMap debe ser el mapa base inicial.")
+if "basemaps.cartocdn.com" in map_source:
+    FAILURES.append("map/app.js: permanece el mapa base CARTO que exige una API key.")
+
 if "layer.openPopup(event.latlng)" in map_source:
     FAILURES.append("map/app.js: el popup de criterios todavía se abre al pasar el mouse")
 

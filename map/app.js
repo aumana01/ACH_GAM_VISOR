@@ -166,15 +166,6 @@
         attribution: "© OpenStreetMap contributors",
       },
     ),
-    "Claro · Carto": L.tileLayer(
-      "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
-      {
-        maxZoom: 20,
-        crossOrigin: true,
-        subdomains: "abcd",
-        attribution: "© OpenStreetMap contributors © CARTO",
-      },
-    ),
     "Satélite · Esri": L.tileLayer(
       "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
       {

@@ -21,7 +21,8 @@ Streamlit e incorpora una interfaz cartográfica Leaflet autocontenida.
 - criterios especiales con el tipo de restricción o facilidad y el código de
   abastecimiento asociado;
 - coberturas someras/estimadas de ASADAS mediante polígonos Thiessen;
-- mapas base de OpenStreetMap, CARTO, Esri y OpenTopoMap;
+- mapas base de OpenStreetMap, Esri y OpenTopoMap; Calles de OpenStreetMap
+  se selecciona al abrir el visor;
 - dibujo temporal de puntos, líneas, polígonos, rectángulos y texto/notas;
 - pin con coordenadas WGS84 y copia al portapapeles;
 - búsqueda por latitud y longitud WGS84 con zoom y pin resaltado;
