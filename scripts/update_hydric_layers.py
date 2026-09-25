@@ -1,20 +1,23 @@
 #!/usr/bin/env python3
 """Actualiza capacidad GAM y criterios desde los ZIP públicos de Shapefile.
 
-Los indicadores no presentes en el SHP nuevo se conservan del GeoJSON público
-anterior. Se reemplazan únicamente los sistemas presentes en la fuente nueva.
+Los indicadores no presentes en el SHP se toman de metricas_gam_2026.csv.
+MEA23 se integró en MEA16 y se retira de la capa pública.
 """
 
 from __future__ import annotations
 
 import argparse
+import csv
 import gzip
 import json
+import math
 from collections import Counter, defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
 
-from shapely.geometry import shape
+from shapely.geometry import mapping, shape
+from shapely.ops import unary_union
 
 from import_national_territorial_layers import district_index, matching_district_indices, safe_geometry
 from import_shapefile_layers import (
@@ -31,6 +34,26 @@ from import_shapefile_layers import (
 )
 
 DATA_DIR = Path(__file__).resolve().parents[1] / "map" / "data"
+DEFAULT_METRICS = Path(__file__).resolve().with_name("metricas_gam_2026.csv")
+FORMER_MEA23_GEOMETRY = Path(__file__).resolve().with_name("area_mea23_barrio_espana.geojson")
+MERGED_SYSTEMS = {"MEA23": "MEA16"}
+
+
+def read_metrics(path: Path):
+    metrics = {}
+    with path.open(newline="", encoding="utf-8-sig") as source:
+        for row in csv.DictReader(source):
+            code = normalize_code(row["codigo"])
+            if not code or code in metrics or code in MERGED_SYSTEMS:
+                raise ValueError(f"Código duplicado o inválido en indicadores: {code}")
+            values = {
+                field: float(row[field])
+                for field in ("factor_ocupacion", "consumo_conexion_m3_mes", "dotacion_lpd")
+            }
+            if any(not math.isfinite(value) or value <= 0 for value in values.values()):
+                raise ValueError(f"Indicadores inválidos para {code}")
+            metrics[code] = values
+    return metrics
 
 
 def load_shapefile(path: Path):
@@ -50,6 +73,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--capacity", type=Path, required=True)
     parser.add_argument("--criteria", type=Path, required=True)
+    parser.add_argument("--metrics", type=Path, default=DEFAULT_METRICS)
     parser.add_argument("--data-dir", type=Path, default=DATA_DIR)
     args = parser.parse_args()
     data_dir = args.data_dir
@@ -59,6 +83,7 @@ def main():
     with gzip.open(data_dir / "distritos.geojson.gz", "rt", encoding="utf-8") as source:
         districts = json.load(source)
     old_by_code = {feature["properties"]["codigo"]: feature["properties"] for feature in old_systems["features"]}
+    metrics = read_metrics(args.metrics)
     district_geometries, district_tree = district_index(districts)
 
     capacity_rows = load_shapefile(args.capacity)
@@ -79,15 +104,47 @@ def main():
                        for i in matching_district_indices(safe_geometry(geometry), district_geometries, district_tree)})
         if not keys:
             raise ValueError(f"Sin distrito para {code}, {row.get('zonas')}")
-        properties = {**old_by_code[code], "ich": ich, "territorios": keys}
+        properties = {**old_by_code[code], **metrics.get(code, {}), "ich": ich, "territorios": keys}
         new_features.append({"type": "Feature", "geometry": geometry, "properties": properties})
         zones[zone_key(code, row.get("zonas", ""))].append((row, shape(geometry)))
     inconsistent = {code: values for code, values in categories.items() if len(values) != 1}
     if inconsistent:
         raise ValueError(f"Categorías divergentes dentro del sistema: {inconsistent}")
+    if set(categories) != set(metrics):
+        raise ValueError(
+            f"La tabla de indicadores no coincide con el SHP: "
+            f"sin indicadores {sorted(set(categories) - set(metrics))}; "
+            f"sin geometría {sorted(set(metrics) - set(categories))}"
+        )
+    if set(categories) & MERGED_SYSTEMS.keys():
+        raise ValueError("El SHP aún incluye un sistema que ya fue unificado")
+
+    # El SHP reciente de MEA16 no contiene toda la antigua área de Barrio España.
+    # Se suma únicamente la porción aún descubierta para no duplicar geometrías.
+    former_area = safe_geometry(json.loads(FORMER_MEA23_GEOMETRY.read_text(encoding="utf-8")))
+    current_mea16 = unary_union([
+        safe_geometry(feature["geometry"]) for feature in new_features
+        if feature["properties"]["codigo"] == "MEA16"
+    ])
+    if current_mea16.is_empty:
+        raise ValueError("La fuente nueva no contiene MEA16")
+    supplemental_area = former_area.difference(current_mea16)
+    if not supplemental_area.is_empty:
+        supplemental_geometry = mapping(supplemental_area)
+        keys = sorted({
+            districts["features"][i]["properties"]["clave"]
+            for i in matching_district_indices(supplemental_area, district_geometries, district_tree)
+        })
+        if not keys:
+            raise ValueError("Barrio España no coincide con ningún distrito")
+        mea16 = next(feature["properties"] for feature in new_features
+                     if feature["properties"]["codigo"] == "MEA16")
+        new_features.append({"type": "Feature", "geometry": supplemental_geometry,
+                             "properties": {**mea16, "territorios": keys}})
 
     unchanged = [feature for feature in old_systems["features"]
-                 if feature["properties"]["codigo"] not in categories]
+                 if feature["properties"]["codigo"] not in categories
+                 and feature["properties"]["codigo"] not in MERGED_SYSTEMS]
     systems = {"type": "FeatureCollection", "features": unchanged + new_features}
 
     criteria_features = []
@@ -134,8 +191,11 @@ def main():
     )
     (data_dir / "metadata.json").write_text(json.dumps(metadata, ensure_ascii=False, separators=(",", ":")) + "\n", encoding="utf-8")
     print(json.dumps({"systems": len(all_by_code), "capacityPolygons": len(systems["features"]),
-                      "newCapacityPolygons": len(new_features), "criteriaPolygons": len(criteria_features),
+                      "sourceCapacityPolygons": len(capacity_rows),
+                      "supplementalMergedAreas": int(not supplemental_area.is_empty),
+                      "criteriaPolygons": len(criteria_features),
                       "criteriaWithoutZoneMatch": unresolved,
+                      "mergedSystemsRemoved": sorted(set(old_by_code) & MERGED_SYSTEMS.keys()),
                       "retainedMetropolitanSystems": sorted(code for code in all_by_code if code.startswith("MEA") and code not in categories)},
                      ensure_ascii=False, indent=2))
 

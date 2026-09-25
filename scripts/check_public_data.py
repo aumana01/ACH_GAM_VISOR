@@ -168,6 +168,9 @@ for feature in systems:
     if factor is not None and not isinstance(factor, (int, float)):
         FAILURES.append(f"{code or 'Sin código'}: factor_ocupacion inválido.")
 
+if "MEA23" in unique_systems:
+    FAILURES.append("MEA23 fue integrado en MEA16 y no debe permanecer como sistema independiente.")
+
 district_features = collections.get("distritos.geojson.gz", {}).get("features", [])
 district_keys: set[str] = set()
 for feature in district_features:

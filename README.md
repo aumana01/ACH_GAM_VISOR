@@ -94,7 +94,7 @@ campos de cálculo del Excel.
 La capa de puntos ASADA y la división distrital se importan directamente desde
 SHP WGS84. El proceso conserva los vértices distritales, publica solo los
 atributos permitidos y calcula mediante intersección espacial la pertenencia de
-los 179 sistemas y de las coberturas Thiessen a cada territorio.
+los sistemas y las coberturas Thiessen a cada territorio.
 
 ```bash
 pip install -r requirements-update.txt
@@ -143,9 +143,16 @@ hachurado. El popup se abre únicamente al hacer clic en la geometría.
 Cuando el SHP de capacidad trae polígonos por zona de abastecimiento, use el
 importador conjunto para conservar sus geometrías y recalcular la relación con
 los distritos del visor. El ICH se toma del SHP nuevo; dotación, consumo por
-conexión y factor de ocupación se conservan de la capa pública anterior porque
-estos campos no están en el SHP. Los sistemas ausentes de la fuente nueva se
-mantienen sin cambios. Los códigos de abastecimiento y zonas operativas de los
+conexión y factor de ocupación se toman de `scripts/metricas_gam_2026.csv`,
+ya que esos campos no están en el SHP. MEA23 se unificó con MEA16 y se elimina
+de la capa pública; MEA16 utiliza sus propios indicadores actualizados. Como
+el SHP reciente de MEA16 cubre solo parte del antiguo polígono de MEA23,
+`scripts/area_mea23_barrio_espana.geojson` conserva la geometría pública
+anterior de Barrio España y el importador suma únicamente su porción no cubierta
+por el SHP reciente a MEA16. Los otros sistemas ausentes de la fuente nueva se
+mantienen sin cambios. El
+importador exige correspondencia completa entre los 30 códigos del SHP y la
+tabla de indicadores. Los códigos de abastecimiento y zonas operativas de los
 criterios se relacionan por sistema, nombre de zona e intersección espacial.
 
 ```bash
