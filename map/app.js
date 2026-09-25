@@ -193,7 +193,7 @@
     ),
   };
 
-  baseMaps["Claro · Carto"].addTo(map);
+  baseMaps["Calles · OpenStreetMap"].addTo(map);
   L.control.layers(baseMaps, null, { position: "topright", collapsed: true }).addTo(map);
   L.control.zoom({ position: "bottomright" }).addTo(map);
   map.fitBounds(DEFAULT_BOUNDS, { padding: [18, 18] });
@@ -604,7 +604,7 @@
           weight: 1.45,
           opacity: 0.92,
           fillColor: systemColor(item.properties.ich),
-          fillOpacity: 0.7,
+          fillOpacity: 0.5,
         }),
         onEachFeature: (item, layer) => {
           layer.bindPopup(systemPopup(item.properties), {
@@ -616,14 +616,14 @@
             { sticky: true, direction: "top", opacity: 0.92 },
           );
           layer.on({
-            mouseover: () => layer.setStyle({ weight: 3.4, fillOpacity: 0.84 }),
-            mouseout: () => layer.setStyle({ weight: 1.45, fillOpacity: 0.7 }),
+            mouseover: () => layer.setStyle({ weight: 3.4, fillOpacity: 0.68 }),
+            mouseout: () => layer.setStyle({ weight: 1.45, fillOpacity: 0.5 }),
           });
         },
       },
     ).addTo(map);
     systemsLayer.bringToFront();
-    if (elements.visibleCount) elements.visibleCount.textContent = features.length;
+    if (elements.visibleCount) elements.visibleCount.textContent = new Set(features.map((feature) => feature.properties.codigo)).size;
     return features;
   }
 
@@ -667,7 +667,11 @@
         fillOpacity: 0.92,
       }),
       onEachFeature: (item, layer) => {
-        layer.bindPopup(simplePopup(item.properties.nombre, "ASADA"), {
+        const [longitude, latitude] = item.geometry.coordinates;
+        layer.bindPopup(simplePopup(item.properties.nombre, "Fuente de aprovechamiento de ASADA", [
+          ["Código del operador", item.properties.codigo || "No disponible"],
+          ["Ubicación (WGS84)", `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`],
+        ]), {
           closeButton: true,
           maxWidth: 320,
         });
@@ -935,10 +939,11 @@
     }
     if (message) {
       const counts = visibleTerritorialCounts();
-      const hasResults = features.length + counts.asadas + counts.thiessen > 0;
+      const systemCount = new Set(features.map((feature) => feature.properties.codigo)).size;
+      const hasResults = systemCount + counts.asadas + counts.thiessen > 0;
       showMessage(
         hasResults
-          ? `${features.length} sistema${features.length === 1 ? "" : "s"}, ${counts.asadas} punto${counts.asadas === 1 ? "" : "s"} ASADA y ${counts.thiessen} cobertura${counts.thiessen === 1 ? "" : "s"} ASADA en el filtro.`
+          ? `${systemCount} sistema${systemCount === 1 ? "" : "s"}, ${counts.asadas} fuente${counts.asadas === 1 ? "" : "s"} de aprovechamiento ASADA y ${counts.thiessen} cobertura${counts.thiessen === 1 ? "" : "s"} ASADA en el filtro.`
           : "No hay sistemas ni ASADAS que coincidan con los filtros.",
         !hasResults,
       );
