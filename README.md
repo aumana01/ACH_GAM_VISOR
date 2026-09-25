@@ -15,12 +15,14 @@ Streamlit e incorpora una interfaz cartográfica Leaflet autocontenida.
 - filtrado geoespacial de sistemas AyA, puntos ASADA y coberturas Thiessen;
 - popup público limitado a categoría hídrica, nombre, dotación estimada,
   consumo estimado por conexión y factor de ocupación;
-- capa nacional de 5.400 puntos ASADA con consulta del nombre del operador;
+- capa nacional de 5.400 fuentes de aprovechamiento ASADA con nombre y código
+  del operador, más las coordenadas del punto;
 - capas de municipalidades, ESPH, ASADAS, áreas protegidas y distritos;
 - criterios especiales con el tipo de restricción o facilidad y el código de
   abastecimiento asociado;
 - coberturas someras/estimadas de ASADAS mediante polígonos Thiessen;
-- mapas base de OpenStreetMap, CARTO, Esri y OpenTopoMap;
+- mapas base de OpenStreetMap, Esri y OpenTopoMap; Calles de OpenStreetMap
+  se selecciona al abrir el visor;
 - dibujo temporal de puntos, líneas, polígonos, rectángulos y texto/notas;
 - pin con coordenadas WGS84 y copia al portapapeles;
 - búsqueda por latitud y longitud WGS84 con zoom y pin resaltado;
@@ -93,7 +95,7 @@ campos de cálculo del Excel.
 La capa de puntos ASADA y la división distrital se importan directamente desde
 SHP WGS84. El proceso conserva los vértices distritales, publica solo los
 atributos permitidos y calcula mediante intersección espacial la pertenencia de
-los 179 sistemas y de las coberturas Thiessen a cada territorio.
+los sistemas y las coberturas Thiessen a cada territorio.
 
 ```bash
 pip install -r requirements-update.txt
@@ -136,6 +138,35 @@ python scripts/check_public_data.py
 La simbología se determina automáticamente con `cond_espec`: Artículo 43 se
 muestra como facilidad azul hachurada y las restricciones en rojo/terracota
 hachurado. El popup se abre únicamente al hacer clic en la geometría.
+
+### Actualizar capacidad hídrica GAM y criterios especiales juntos
+
+Cuando el SHP de capacidad trae polígonos por zona de abastecimiento, use el
+importador conjunto para conservar sus geometrías y recalcular la relación con
+los distritos del visor. El ICH se toma del SHP nuevo; dotación, consumo por
+conexión y factor de ocupación se toman de `scripts/metricas_gam_2026.csv`,
+ya que esos campos no están en el SHP. MEA23 se unificó con MEA16 y se elimina
+de la capa pública; MEA16 utiliza sus propios indicadores actualizados. Como
+el SHP reciente de MEA16 cubre solo parte del antiguo polígono de MEA23,
+`scripts/area_mea23_barrio_espana.geojson` conserva la geometría pública
+anterior de Barrio España y el importador suma únicamente su porción no cubierta
+por el SHP reciente a MEA16. Los otros sistemas ausentes de la fuente nueva se
+mantienen sin cambios. El
+importador exige correspondencia completa entre los 30 códigos del SHP y la
+tabla de indicadores. Los códigos de abastecimiento y zonas operativas de los
+criterios se relacionan por sistema, nombre de zona e intersección espacial.
+
+```bash
+pip install -r requirements-update.txt
+python scripts/update_hydric_layers.py \
+  --capacity "/ruta/Capacidad Hídrica.zip" \
+  --criteria "/ruta/Criterios Especiales.zip"
+python scripts/check_public_data.py
+```
+
+La fuente pública de puntos ASADA identifica al operador, pero no proporciona
+un nombre o identificador propio para cada fuente. El popup indica el código
+del operador y las coordenadas WGS84 para distinguir los puntos.
 
 Para regenerar las capas complementarias desde las fuentes originales:
 
